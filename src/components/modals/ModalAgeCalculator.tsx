@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, ArrowRight, Calculator, FileText } from 'lucide-react';
-import { calculateAge } from '../../utils/psychometrics';
+import { X, Calendar, ArrowRight, Calculator, FileText, Loader2 } from 'lucide-react';
+import { calculateAge, getScales } from '../../utils/psychometrics';
 import { useNavigate } from 'react-router-dom';
 
 interface ModalAgeCalculatorProps {
@@ -19,13 +19,17 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
   birthdate: initialBirthdate
 }) => {
   const navigate = useNavigate();
+  const todayStr = new Date().toISOString().split('T')[0];
+
   const [evalName, setEvalName] = useState<string>('Registro 1');
   const [scaleType, setScaleType] = useState<ScaleOption>('wais_c');
   const [birthdate, setBirthdate] = useState<string>(initialBirthdate || '');
-  const [evalDate, setEvalDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [evalDate, setEvalDate] = useState<string>(todayStr);
   const [years, setYears] = useState<number>(0);
   const [months, setMonths] = useState<number>(0);
   const [days, setDays] = useState<number>(0);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [validatingScale, setValidatingScale] = useState<boolean>(false);
 
   useEffect(() => {
     setBirthdate(initialBirthdate || '');
@@ -47,21 +51,51 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
 
   if (!isOpen) return null;
 
-  const handleStartEvaluation = () => {
+  const validate = (): boolean => {
+    const newErrors: Record<string, string> = {};
+    if (!evalName.trim()) newErrors.evalName = 'El nombre de la evaluación es requerido';
+    if (!evalDate) newErrors.evalDate = 'La fecha de administración es requerida';
+    if (!birthdate) {
+      newErrors.birthdate = 'La fecha de nacimiento es requerida';
+    } else if (birthdate > todayStr) {
+      newErrors.birthdate = 'La fecha de nacimiento no puede ser posterior a hoy';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleStartEvaluation = async () => {
+    if (!validate()) return;
+
     const finalYears = isNaN(years) ? 0 : years;
     const finalMonths = isNaN(months) ? 0 : months;
     const finalDays = isNaN(days) ? 0 : days;
     const nameParam = encodeURIComponent(evalName.trim() || 'Registro 1');
 
-    let routeScale = 'wais';
-    if (scaleType === 'wisc') routeScale = 'wisc';
-    else if (scaleType === 'wppsi') routeScale = 'wppsi';
-    else if (scaleType === 'wnv') routeScale = 'wnv';
+    setValidatingScale(true);
+    setErrors(prev => ({ ...prev, scale: '' }));
 
-    navigate(
-      `/patient/${patientId}/${routeScale}?type=${scaleType}&name=${nameParam}&years=${finalYears}&months=${finalMonths}&days=${finalDays}&evalDate=${evalDate}`
-    );
-    onClose();
+    try {
+      await getScales({ years: finalYears, months: finalMonths }, scaleType);
+
+      let routeScale = 'wais';
+      if (scaleType === 'wisc') routeScale = 'wisc';
+      else if (scaleType === 'wppsi') routeScale = 'wppsi';
+      else if (scaleType === 'wnv') routeScale = 'wnv';
+
+      navigate(
+        `/patient/${patientId}/${routeScale}?type=${scaleType}&name=${nameParam}&years=${finalYears}&months=${finalMonths}&days=${finalDays}&evalDate=${evalDate}`
+      );
+      onClose();
+    } catch (err: any) {
+      const message = err instanceof Error ? err.message : String(err);
+      setErrors(prev => ({
+        ...prev,
+        scale: message || 'No se encontró la prueba para la edad especificada'
+      }));
+    } finally {
+      setValidatingScale(false);
+    }
   };
 
   return (
@@ -97,10 +131,13 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
               <input
                 type="text"
                 value={evalName}
-                onChange={e => setEvalName(e.target.value)}
+                onChange={e => { setEvalName(e.target.value); setErrors(prev => ({ ...prev, evalName: '', scale: '' })); }}
                 placeholder="Registro 1"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/30 font-medium"
+                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/30 font-medium ${
+                  errors.evalName ? 'border-red-400 bg-red-50/30' : 'border-gray-200'
+                }`}
               />
+              {errors.evalName && <p className="mt-1 text-xs text-red-500">{errors.evalName}</p>}
             </div>
 
             <div>
@@ -109,7 +146,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
               </label>
               <select
                 value={scaleType}
-                onChange={e => setScaleType(e.target.value as ScaleOption)}
+                onChange={e => { setScaleType(e.target.value as ScaleOption); setErrors(prev => ({ ...prev, scale: '' })); }}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white font-semibold text-gray-800"
               >
                 <option value="wais_c">WAIS (Chilena)</option>
@@ -132,9 +169,12 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
               <input
                 type="date"
                 value={evalDate}
-                onChange={e => setEvalDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50"
+                onChange={e => { setEvalDate(e.target.value); setErrors(prev => ({ ...prev, evalDate: '', scale: '' })); }}
+                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50 ${
+                  errors.evalDate ? 'border-red-400 bg-red-50/30' : 'border-gray-200'
+                }`}
               />
+              {errors.evalDate && <p className="mt-1 text-xs text-red-500">{errors.evalDate}</p>}
             </div>
 
             <div>
@@ -144,10 +184,14 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
               </label>
               <input
                 type="date"
+                max={todayStr}
                 value={birthdate}
-                onChange={e => setBirthdate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50"
+                onChange={e => { setBirthdate(e.target.value); setErrors(prev => ({ ...prev, birthdate: '', scale: '' })); }}
+                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50 ${
+                  errors.birthdate ? 'border-red-400 bg-red-50/30' : 'border-gray-200'
+                }`}
               />
+              {errors.birthdate && <p className="mt-1 text-xs text-red-500">{errors.birthdate}</p>}
             </div>
           </div>
 
@@ -164,7 +208,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
                   min="0"
                   max="120"
                   value={years}
-                  onChange={e => setYears(parseInt(e.target.value, 10) || 0)}
+                  onChange={e => { setYears(parseInt(e.target.value, 10) || 0); setErrors(prev => ({ ...prev, scale: '' })); }}
                   className="w-full px-3 py-2 bg-white rounded-xl border border-indigo-200 font-extrabold text-indigo-900 text-center text-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -175,7 +219,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
                   min="0"
                   max="11"
                   value={months}
-                  onChange={e => setMonths(parseInt(e.target.value, 10) || 0)}
+                  onChange={e => { setMonths(parseInt(e.target.value, 10) || 0); setErrors(prev => ({ ...prev, scale: '' })); }}
                   className="w-full px-3 py-2 bg-white rounded-xl border border-indigo-200 font-extrabold text-indigo-900 text-center text-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -193,22 +237,39 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
             </div>
           </div>
 
+          {errors.scale && (
+            <p className="text-xs text-red-500 font-medium bg-red-50/50 p-2.5 rounded-xl border border-red-200">
+              {errors.scale}
+            </p>
+          )}
+
           {/* Action Buttons */}
           <div className="pt-4 flex justify-end space-x-3 border-t border-gray-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 transition"
+              disabled={validatingScale}
+              className="px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100 transition disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="button"
               onClick={handleStartEvaluation}
-              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm"
+              disabled={validatingScale}
+              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm disabled:opacity-50"
             >
-              <span>Iniciar Evaluación</span>
-              <ArrowRight className="w-4 h-4" />
+              {validatingScale ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Validando escala...</span>
+                </>
+              ) : (
+                <>
+                  <span>Iniciar Evaluación</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
 
@@ -217,3 +278,4 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
     </div>
   );
 };
+

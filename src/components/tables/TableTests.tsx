@@ -47,11 +47,6 @@ export const TableTests: React.FC<TableTestsProps> = ({
                         {t.code}
                       </span>
                       <span>{t.name}</span>
-                      {t.restriction && (
-                        <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                          Con restricción
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td className="px-6 py-3.5 text-center">

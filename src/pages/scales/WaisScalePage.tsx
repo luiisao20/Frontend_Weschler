@@ -6,7 +6,7 @@ import { IndexesSum } from '../../components/tables/IndexesSum';
 import { TableIndexes } from '../../components/tables/TableIndexes';
 import { CompositeScoresChart } from '../../components/charts/CompositeScoresChart';
 import { waisTests, waisIndexes } from '../../data/scaleInfo/waisInfo';
-import { findScalars, findComposes, getScales } from '../../utils/psychometrics';
+import { findScalars, findComposes, getScales, extractCompositeScore } from '../../utils/psychometrics';
 import { addEvaluation, getPatientById } from '../../services/firestore';
 import { Patient } from '../../types';
 import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -18,12 +18,14 @@ export const WaisScalePage: React.FC = () => {
 
   const yearsStr = searchParams.get('years') || '20';
   const monthsStr = searchParams.get('months') || '0';
+  const daysStr = searchParams.get('days') || '0';
   const evalDate = searchParams.get('evalDate') || new Date().toISOString().split('T')[0];
   const waisType = searchParams.get('type') || 'wais_c';
   const evalNameParam = searchParams.get('name') || `Evaluación WAIS - ${evalDate}`;
 
   const yearsNum = parseInt(yearsStr, 10);
   const monthsNum = parseInt(monthsStr, 10);
+  const daysNum = parseInt(daysStr, 10);
   const chrAge = yearsNum + monthsNum / 12;
 
   // Apply WAIS age 70 restriction
@@ -110,17 +112,25 @@ export const WaisScalePage: React.FC = () => {
     return { lower: 0, upper: 0 };
   };
 
-  const chartGraphicsData = {
-    xlabel: waisIndexes.map(i => i.code),
-    values: waisIndexes.map(i => {
-      const item = composes[i.code];
-      if (!item) return 0;
-      const val = item[i.code] ?? item.composite ?? item.score;
-      return typeof val === 'number' ? val : (parseInt(String(val), 10) || 0);
-    }),
-    upperLimits: waisIndexes.map(i => parseIntervalLimits(composes[i.code], showRange ? '95' : '90').upper),
-    lowerLimits: waisIndexes.map(i => parseIntervalLimits(composes[i.code], showRange ? '95' : '90').lower)
-  };
+  const chartGraphicsData = (() => {
+    const validItems = waisIndexes.map(i => {
+      const val = extractCompositeScore(composes[i.code], i.code);
+      const limits = parseIntervalLimits(composes[i.code], showRange ? '95' : '90');
+      return {
+        code: i.code,
+        val: val > 0 ? val : null,
+        upper: limits.upper > 0 ? limits.upper : null,
+        lower: limits.lower > 0 ? limits.lower : null
+      };
+    }).filter(item => item.val !== null);
+
+    return {
+      xlabel: validItems.map(i => i.code),
+      values: validItems.map(i => i.val as number),
+      upperLimits: validItems.map(i => i.upper as number),
+      lowerLimits: validItems.map(i => i.lower as number)
+    };
+  })();
 
   const handleSave = async () => {
     if (!patientId) return;
@@ -148,7 +158,8 @@ export const WaisScalePage: React.FC = () => {
         testDay: evalDate,
         years: yearsNum,
         months: monthsNum,
-        age: { years: yearsNum, months: monthsNum },
+        days: daysNum,
+        age: { years: yearsNum, months: monthsNum, days: daysNum },
         rawScores: inputs,
         scalarScores: scalarPoints,
         indexesSum: indexesSum,
@@ -169,8 +180,8 @@ export const WaisScalePage: React.FC = () => {
     }
   };
 
-  const firstName = patient?.name || patient?.firstName || '';
-  const lastName = patient?.lastname || patient?.lastName || '';
+  const firstName = patient?.firstName 
+  const lastName = patient?.lastName;
   const fullName = `${firstName} ${lastName}`.trim() || 'Paciente';
 
   const getWaisLabel = () => {

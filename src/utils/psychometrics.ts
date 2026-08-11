@@ -104,7 +104,8 @@ export function findScalars(
   table: any,
   tests: any[],
   indexes: any[],
-  multipleIndexes?: string
+  multipleIndexes?: string,
+  isEarlyAge?: boolean
 ) {
   const points: Record<string, number> = {};
   const sum: Record<string, number> = {};
@@ -134,23 +135,473 @@ export function findScalars(
     }
   });
 
-  // Check if indexes have explicit 'mains' defined (like WAIS)
-  const hasMains = indexes.some(idx => idx.mains && Array.isArray(idx.mains));
-
-  if (hasMains) {
-    const completed = Object.keys(points);
-    const allTestCodes = tests.map(t => t.code);
-    const uncompleted = allTestCodes.filter(c => !completed.includes(c));
-
+  // Special substitution and completeness logic for WPPSI Early Age (2:6 - 3:11)
+  if (isEarlyAge && (multipleIndexes === 'primary' || multipleIndexes === 'secondary')) {
     indexes.forEach(indexObj => {
-      let currentSum = 0;
-      if (indexObj.mains) {
-        indexObj.mains.forEach((code: string) => {
-          if (points[code] !== undefined) {
+      const idxCode = indexObj.code;
+
+      if (idxCode === 'CIT') {
+        // Main required subtests for CIT (2:6 - 3:11): D, C, R, I, RO
+        // Allowed substitutions: D -> N, R -> L (Max 1 substitution total)
+        let substitutionCount = 0;
+        let citSum = 0;
+        let isInvalid = false;
+
+        // Check C, I, RO (must be present)
+        for (const reqCode of ['C', 'I', 'RO']) {
+          if (points[reqCode] === undefined) {
+            isInvalid = true;
+            break;
+          }
+          citSum += points[reqCode];
+        }
+
+        // Check D (Dibujos) -> substitute by N (Nombres) if missing
+        if (!isInvalid) {
+          if (points['D'] !== undefined) {
+            citSum += points['D'];
+          } else if (points['N'] !== undefined) {
+            citSum += points['N'];
+            substitutionCount += 1;
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Check R (Reconocimiento) -> substitute by L (Localización) if missing
+        if (!isInvalid) {
+          if (points['R'] !== undefined) {
+            citSum += points['R'];
+          } else if (points['L'] !== undefined) {
+            citSum += points['L'];
+            substitutionCount += 1;
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Max 1 substitution allowed for CIT. If 2 substitutions, CIT is invalid!
+        if (isInvalid || substitutionCount > 1) {
+          delete sum['CIT'];
+        } else {
+          sum['CIT'] = citSum;
+        }
+
+      } else if (idxCode === 'ICG') {
+        // Main required subtests for ICG (2:6 - 3:11): D, C, I, RO
+        // Allowed substitution: D -> N
+        let isInvalid = false;
+        let icgSum = 0;
+
+        for (const reqCode of ['C', 'I', 'RO']) {
+          if (points[reqCode] === undefined) {
+            isInvalid = true;
+            break;
+          }
+          icgSum += points[reqCode];
+        }
+
+        if (!isInvalid) {
+          if (points['D'] !== undefined) {
+            icgSum += points['D'];
+          } else if (points['N'] !== undefined) {
+            icgSum += points['N'];
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        if (isInvalid) {
+          delete sum['ICG'];
+        } else {
+          sum['ICG'] = icgSum;
+        }
+
+      } else {
+        // Other indexes for age 2:6 - 3:11 (ICV, IVE, IMT, IAV, INV, ICC)
+        // Substitutions NOT allowed. ALL required subtests MUST be present.
+        let mainList: string[] | undefined = indexObj.earlyMains;
+        
+        if (!mainList && indexObj.group) {
+          mainList = tests.filter(t => !t.restriction && t.primary?.includes(indexObj.group)).map(t => t.code);
+          if (!mainList || mainList.length === 0) {
+            mainList = tests.filter(t => !t.restriction && t.secondary?.includes(indexObj.group)).map(t => t.code);
+          }
+        }
+
+        if (mainList && mainList.length > 0) {
+          let currentSum = 0;
+          let allPresent = true;
+
+          for (const code of mainList) {
+            if (points[code] === undefined) {
+              allPresent = false;
+              break;
+            }
             currentSum += points[code];
           }
-        });
+
+          if (allPresent) {
+            sum[idxCode] = currentSum;
+          } else {
+            delete sum[idxCode];
+          }
+        } else {
+          delete sum[idxCode];
+        }
       }
+    });
+
+    return { points, sum, errors };
+  }
+
+  // Special substitution and completeness logic for WPPSI Late Age (4:0 - 7:7)
+  if (!isEarlyAge && (multipleIndexes === 'primary' || multipleIndexes === 'secondary')) {
+    indexes.forEach(indexObj => {
+      const idxCode = indexObj.code;
+
+      if (idxCode === 'CIT') {
+        // Main required subtests for CIT (4:0 - 7:7): C, I, M, BA, R, S
+        // Substitutions allowed:
+        // C -> RO
+        // M -> CON
+        // BA -> CA or CF
+        // R -> L
+        // I or S -> V or CO
+        // Max 1 substitution allowed total!
+        let substitutionCount = 0;
+        let citSum = 0;
+        let isInvalid = false;
+
+        // Check C (Cubos)
+        if (points['C'] !== undefined) {
+          citSum += points['C'];
+        } else if (points['RO'] !== undefined) {
+          citSum += points['RO'];
+          substitutionCount += 1;
+        } else {
+          isInvalid = true;
+        }
+
+        // Check M (Matrices)
+        if (!isInvalid) {
+          if (points['M'] !== undefined) {
+            citSum += points['M'];
+          } else if (points['CON'] !== undefined) {
+            citSum += points['CON'];
+            substitutionCount += 1;
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Check BA (Búsqueda de animales)
+        if (!isInvalid) {
+          if (points['BA'] !== undefined) {
+            citSum += points['BA'];
+          } else if (points['CA'] !== undefined) {
+            citSum += points['CA'];
+            substitutionCount += 1;
+          } else if (points['CF'] !== undefined) {
+            citSum += points['CF'];
+            substitutionCount += 1;
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Check R (Reconocimiento)
+        if (!isInvalid) {
+          if (points['R'] !== undefined) {
+            citSum += points['R'];
+          } else if (points['L'] !== undefined) {
+            citSum += points['L'];
+            substitutionCount += 1;
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Check I (Información) and S (Semejanzas)
+        if (!isInvalid) {
+          const hasI = points['I'] !== undefined;
+          const hasS = points['S'] !== undefined;
+
+          if (hasI && hasS) {
+            citSum += points['I'] + points['S'];
+          } else if (!hasI && hasS) {
+            if (points['V'] !== undefined) {
+              citSum += points['V'] + points['S'];
+              substitutionCount += 1;
+            } else if (points['CO'] !== undefined) {
+              citSum += points['CO'] + points['S'];
+              substitutionCount += 1;
+            } else {
+              isInvalid = true;
+            }
+          } else if (hasI && !hasS) {
+            if (points['V'] !== undefined) {
+              citSum += points['I'] + points['V'];
+              substitutionCount += 1;
+            } else if (points['CO'] !== undefined) {
+              citSum += points['I'] + points['CO'];
+              substitutionCount += 1;
+            } else {
+              isInvalid = true;
+            }
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Max 1 substitution allowed for CIT. If > 1 substitutions, CIT is invalid!
+        if (isInvalid || substitutionCount > 1) {
+          delete sum['CIT'];
+        } else {
+          sum['CIT'] = citSum;
+        }
+
+      } else if (idxCode === 'INV') {
+        // Main required subtests for INV (4:0 - 7:7): C, M, BA, R, CON
+        // Substitutions allowed (Max 1):
+        // C -> RO
+        // R -> L
+        // BA -> CA or CF
+        let substitutionCount = 0;
+        let invSum = 0;
+        let isInvalid = false;
+
+        // Check C
+        if (points['C'] !== undefined) {
+          invSum += points['C'];
+        } else if (points['RO'] !== undefined) {
+          invSum += points['RO'];
+          substitutionCount += 1;
+        } else {
+          isInvalid = true;
+        }
+
+        // Check M
+        if (!isInvalid) {
+          if (points['M'] !== undefined) {
+            invSum += points['M'];
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Check CON
+        if (!isInvalid) {
+          if (points['CON'] !== undefined) {
+            invSum += points['CON'];
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Check BA
+        if (!isInvalid) {
+          if (points['BA'] !== undefined) {
+            invSum += points['BA'];
+          } else if (points['CA'] !== undefined) {
+            invSum += points['CA'];
+            substitutionCount += 1;
+          } else if (points['CF'] !== undefined) {
+            invSum += points['CF'];
+            substitutionCount += 1;
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Check R
+        if (!isInvalid) {
+          if (points['R'] !== undefined) {
+            invSum += points['R'];
+          } else if (points['L'] !== undefined) {
+            invSum += points['L'];
+            substitutionCount += 1;
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        if (isInvalid || substitutionCount > 1) {
+          delete sum['INV'];
+        } else {
+          sum['INV'] = invSum;
+        }
+
+      } else if (idxCode === 'ICG') {
+        // Main required subtests for ICG (4:0 - 7:7): C, I, M, S
+        // Substitutions allowed (Max 1):
+        // C -> RO
+        // M -> CON
+        // I or S -> V or CO
+        let substitutionCount = 0;
+        let icgSum = 0;
+        let isInvalid = false;
+
+        // Check C
+        if (points['C'] !== undefined) {
+          icgSum += points['C'];
+        } else if (points['RO'] !== undefined) {
+          icgSum += points['RO'];
+          substitutionCount += 1;
+        } else {
+          isInvalid = true;
+        }
+
+        // Check M
+        if (!isInvalid) {
+          if (points['M'] !== undefined) {
+            icgSum += points['M'];
+          } else if (points['CON'] !== undefined) {
+            icgSum += points['CON'];
+            substitutionCount += 1;
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        // Check I and S
+        if (!isInvalid) {
+          const hasI = points['I'] !== undefined;
+          const hasS = points['S'] !== undefined;
+
+          if (hasI && hasS) {
+            icgSum += points['I'] + points['S'];
+          } else if (!hasI && hasS) {
+            if (points['V'] !== undefined) {
+              icgSum += points['V'] + points['S'];
+              substitutionCount += 1;
+            } else if (points['CO'] !== undefined) {
+              icgSum += points['CO'] + points['S'];
+              substitutionCount += 1;
+            } else {
+              isInvalid = true;
+            }
+          } else if (hasI && !hasS) {
+            if (points['V'] !== undefined) {
+              icgSum += points['I'] + points['V'];
+              substitutionCount += 1;
+            } else if (points['CO'] !== undefined) {
+              icgSum += points['I'] + points['CO'];
+              substitutionCount += 1;
+            } else {
+              isInvalid = true;
+            }
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        if (isInvalid || substitutionCount > 1) {
+          delete sum['ICG'];
+        } else {
+          sum['ICG'] = icgSum;
+        }
+
+      } else if (idxCode === 'ICC') {
+        // Main required subtests for ICC (4:0 - 7:7): BA, R, CA, L
+        // Allowed substitution (Max 1):
+        // CF replaces BA or CA
+        let substitutionCount = 0;
+        let iccSum = 0;
+        let isInvalid = false;
+
+        // Check R and L
+        if (points['R'] !== undefined && points['L'] !== undefined) {
+          iccSum += points['R'] + points['L'];
+        } else {
+          isInvalid = true;
+        }
+
+        // Check BA and CA
+        if (!isInvalid) {
+          const hasBA = points['BA'] !== undefined;
+          const hasCA = points['CA'] !== undefined;
+
+          if (hasBA && hasCA) {
+            iccSum += points['BA'] + points['CA'];
+          } else if (!hasBA && hasCA) {
+            if (points['CF'] !== undefined) {
+              iccSum += points['CF'] + points['CA'];
+              substitutionCount += 1;
+            } else {
+              isInvalid = true;
+            }
+          } else if (hasBA && !hasCA) {
+            if (points['CF'] !== undefined) {
+              iccSum += points['BA'] + points['CF'];
+              substitutionCount += 1;
+            } else {
+              isInvalid = true;
+            }
+          } else {
+            isInvalid = true;
+          }
+        }
+
+        if (isInvalid || substitutionCount > 1) {
+          delete sum['ICC'];
+        } else {
+          sum['ICC'] = iccSum;
+        }
+
+      } else {
+        // Primary indexes for age 4:0 - 7:7 (ICV, IVE, IRF, IMT, IVP) and IAV
+        // NO substitutions allowed! All required subtests MUST be present.
+        let mainList: string[] | undefined = indexObj.lastMains;
+
+        if (mainList && mainList.length > 0) {
+          let currentSum = 0;
+          let allPresent = true;
+
+          for (const code of mainList) {
+            if (points[code] === undefined) {
+              allPresent = false;
+              break;
+            }
+            currentSum += points[code];
+          }
+
+          if (allPresent) {
+            sum[idxCode] = currentSum;
+          } else {
+            delete sum[idxCode];
+          }
+        } else {
+          delete sum[idxCode];
+        }
+      }
+    });
+
+    return { points, sum, errors };
+  }
+
+  const completed = Object.keys(points);
+  const allTestCodes = tests.map(t => t.code);
+  const uncompleted = allTestCodes.filter(c => !completed.includes(c));
+
+  indexes.forEach(indexObj => {
+    let mainList: string[] | undefined = undefined;
+
+    if (isEarlyAge && indexObj.earlyMains) {
+      mainList = indexObj.earlyMains;
+    } else if (!isEarlyAge && indexObj.lastMains) {
+      mainList = indexObj.lastMains;
+    } else if (indexObj.mains) {
+      mainList = indexObj.mains;
+    }
+
+    if (mainList && Array.isArray(mainList)) {
+      let currentSum = 0;
+      mainList.forEach((code: string) => {
+        if (points[code] !== undefined) {
+          currentSum += points[code];
+        }
+      });
 
       const replacement = selectReplacementsWAIS(indexObj.code, completed, uncompleted, points);
       if (typeof replacement === 'number') {
@@ -158,56 +609,131 @@ export function findScalars(
       }
 
       sum[indexObj.code] = currentSum;
-    });
-  } else {
-    // Standard group summing for WISC / WPPSI / WNV
-    Object.keys(points).forEach(testCode => {
-      const scalarValue = points[testCode];
-      const item = tests.find(v => v.code === testCode);
+    } else {
+      let currentSum = 0;
+      Object.keys(points).forEach(testCode => {
+        const scalarValue = points[testCode];
+        const item = tests.find(v => v.code === testCode);
 
-      if (item) {
-        if (multipleIndexes && item[multipleIndexes]) {
-          item[multipleIndexes].forEach((indexer: string) => {
-            const indexObj = indexes.find(v => v.group === indexer);
-            if (indexObj) {
-              sum[indexObj.code] = (sum[indexObj.code] || 0) + scalarValue;
+        if (item) {
+          if (multipleIndexes && item[multipleIndexes] && Array.isArray(item[multipleIndexes])) {
+            if (item[multipleIndexes].includes(indexObj.group)) {
+              currentSum += scalarValue;
             }
-          });
-        } else if (item.group) {
-          const indexObj = indexes.find(v => v.group === item.group);
-          if (indexObj && indexes.length > 1) {
-            sum[indexObj.code] = (sum[indexObj.code] || 0) + scalarValue;
+          } else if (item.group && item.group === indexObj.group) {
+            currentSum += scalarValue;
           }
         }
+      });
 
-        if (multipleIndexes !== 'secondary' && indexes.length > 0) {
-          const totalIndexCode = indexes[indexes.length - 1].code;
-          sum[totalIndexCode] = (sum[totalIndexCode] || 0) + scalarValue;
-        }
-      }
-    });
-  }
+      sum[indexObj.code] = currentSum;
+    }
+  });
 
   return { points, sum, errors };
 }
 
 export function findComposes(
   indexesSum: Record<string, number>,
-  indexConversionTables: any[]
+  indexConversionTables: any[],
+  isEarlyAge?: boolean
 ): Record<string, any> {
   const composes: Record<string, any> = {};
-  if (!indexConversionTables || !Array.isArray(indexConversionTables)) return composes;
+  if (!indexesSum || !indexConversionTables || !Array.isArray(indexConversionTables)) return composes;
 
   indexConversionTables.forEach((element: any) => {
-    const idxCode = element.index || element.code;
-    const sumVal = indexesSum[idxCode];
+    if (!element) return;
+    const rawCode = element.index || element.code || element.name || element.group || '';
+    const fullCodeStr = String(rawCode).trim().toUpperCase();
+    
+    // Extract base code (e.g. "ICV 2-6 3-11" -> "ICV", "IAV 2-6 7-7" -> "IAV")
+    const baseCode = fullCodeStr.split(' ')[0];
 
-    if (sumVal !== undefined && element.data && element.data[sumVal]) {
-      composes[idxCode] = element.data[sumVal];
+    // Age matching filter for WPPSI tables that include range in index code
+    if (isEarlyAge !== undefined) {
+      const containsEarly = fullCodeStr.includes('2-6') || fullCodeStr.includes('3-11');
+      const containsLate = fullCodeStr.includes('4-0') || fullCodeStr.includes('7-7');
+
+      const isExplicitEarlyOnly = containsEarly && !fullCodeStr.includes('4-0') && !fullCodeStr.includes('7-7');
+      const isExplicitLateOnly = containsLate && !fullCodeStr.includes('2-6') && !fullCodeStr.includes('3-11');
+
+      if (isEarlyAge && isExplicitLateOnly) return;
+      if (!isEarlyAge && isExplicitEarlyOnly) return;
+    }
+
+    // Match against keys in indexesSum (either full code or base code)
+    const matchedKey = Object.keys(indexesSum).find(k => {
+      const upperK = k.trim().toUpperCase();
+      return upperK === fullCodeStr || upperK === baseCode || (element.group && upperK === String(element.group).trim().toUpperCase());
+    });
+
+    const targetKey = matchedKey || baseCode;
+    const sumVal = indexesSum[targetKey];
+
+    if (sumVal !== undefined && sumVal !== null && element.data) {
+      let foundData = element.data[sumVal] ?? element.data[String(sumVal)];
+
+      if (!foundData && Array.isArray(element.data)) {
+        foundData = element.data.find(
+          (d: any) => d && (d.sum === sumVal || d.sum === String(sumVal) || d.score === sumVal || d.score === String(sumVal))
+        );
+      }
+
+      if (foundData) {
+        composes[targetKey] = foundData;
+        composes[baseCode] = foundData;
+        composes[fullCodeStr] = foundData;
+      }
     }
   });
 
   return composes;
+}
+
+export function extractCompositeScore(comp: any, code: string): number {
+  if (!comp) return 0;
+  if (typeof comp === 'number') return comp;
+  if (typeof comp === 'string') return parseInt(comp, 10) || 0;
+
+  if (typeof comp === 'object') {
+    if (comp[code] !== undefined && comp[code] !== null) {
+      const v = Number(comp[code]);
+      if (!isNaN(v)) return v;
+    }
+    if (comp.composite !== undefined && comp.composite !== null) {
+      const v = Number(comp.composite);
+      if (!isNaN(v)) return v;
+    }
+    if (comp.score !== undefined && comp.score !== null) {
+      const v = Number(comp.score);
+      if (!isNaN(v)) return v;
+    }
+    if (comp.value !== undefined && comp.value !== null) {
+      const v = Number(comp.value);
+      if (!isNaN(v)) return v;
+    }
+
+    const codeKey = Object.keys(comp).find(k => k.toUpperCase().startsWith(code.toUpperCase()));
+    if (codeKey && comp[codeKey] !== undefined && comp[codeKey] !== null) {
+      const v = Number(comp[codeKey]);
+      if (!isNaN(v)) return v;
+    }
+
+    const ignoreKeys = ['percentil', 'percentile', '90%', '95%', 'ic90', 'ic95', 'rango'];
+    const numericKey = Object.keys(comp).find(k => {
+      const lowerK = k.toLowerCase();
+      if (ignoreKeys.some(ik => lowerK.includes(ik))) return false;
+      const val = comp[k];
+      return typeof val === 'number' || (typeof val === 'string' && !isNaN(Number(val)) && String(val).trim() !== '');
+    });
+
+    if (numericKey && comp[numericKey] !== undefined && comp[numericKey] !== null) {
+      const v = Number(comp[numericKey]);
+      if (!isNaN(v)) return v;
+    }
+  }
+
+  return 0;
 }
 
 export async function getScales(age: { years: number; months: number }, scale: string) {

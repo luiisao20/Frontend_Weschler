@@ -1,17 +1,28 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
-import { Navbar } from '../../components/layout/Navbar';
-import { TableTests } from '../../components/tables/TableTests';
-import { IndexesSum } from '../../components/tables/IndexesSum';
-import { TableIndexes } from '../../components/tables/TableIndexes';
-import { wnvTests } from '../../data/scaleInfo/wnvInfo';
-import { findScalars, getScales } from '../../utils/psychometrics';
-import { addEvaluation, getPatientById } from '../../services/firestore';
-import { Patient } from '../../types';
-import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import {
+  useParams,
+  useSearchParams,
+  useNavigate,
+  Link,
+} from "react-router-dom";
+import { Navbar } from "../../components/layout/Navbar";
+import { TableTests } from "../../components/tables/TableTests";
+import { IndexesSum } from "../../components/tables/IndexesSum";
+import { TableIndexes } from "../../components/tables/TableIndexes";
+import { wnvTests } from "../../data/scaleInfo/wnvInfo";
+import { findScalars, getScales } from "../../utils/psychometrics";
+import { addEvaluation, getPatientById } from "../../services/firestore";
+import { Patient } from "../../types";
+import {
+  ArrowLeft,
+  Save,
+  Brain,
+  CheckCircle2,
+  AlertCircle,
+} from "lucide-react";
 
 const wnvIndexes = [
-  { code: 'CIT', name: 'Escala Total No Verbal', group: null }
+  { code: "CIT", name: "Escala Total No Verbal", group: null },
 ];
 
 export const WnvScalePage: React.FC = () => {
@@ -19,9 +30,17 @@ export const WnvScalePage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const yearsStr = searchParams.get('years') || '12';
-  const monthsStr = searchParams.get('months') || '0';
-  const evalDate = searchParams.get('evalDate') || new Date().toISOString().split('T')[0];
+  const yearsStr = searchParams.get("years") || "12";
+  const monthsStr = searchParams.get("months") || "0";
+  const daysStr = searchParams.get("days") || "0";
+  const evalDate =
+    searchParams.get("evalDate") || new Date().toISOString().split("T")[0];
+  const evalNameParam =
+    searchParams.get("name") || `Evaluación WNV - ${evalDate}`;
+
+  const yearsNum = parseInt(yearsStr, 10);
+  const monthsNum = parseInt(monthsStr, 10);
+  const daysNum = parseInt(daysStr, 10);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [inputs, setInputs] = useState<Record<string, number | string>>({});
@@ -41,11 +60,14 @@ export const WnvScalePage: React.FC = () => {
   }, [patientId]);
 
   useEffect(() => {
-    const ageObj = { years: parseInt(yearsStr, 10), months: parseInt(monthsStr, 10) };
-    getScales(ageObj, 'wnv')
-      .then(res => setNormativeTable(res.table))
-      .catch(err => {
-        console.error('Error loading WNV table:', err);
+    const ageObj = {
+      years: parseInt(yearsStr, 10),
+      months: parseInt(monthsStr, 10),
+    };
+    getScales(ageObj, "wnv")
+      .then((res) => setNormativeTable(res.table))
+      .catch((err) => {
+        console.error("Error loading WNV table:", err);
         setError(err instanceof Error ? err.message : String(err));
       });
   }, [yearsStr, monthsStr]);
@@ -55,7 +77,12 @@ export const WnvScalePage: React.FC = () => {
     setInputs(newInputs);
 
     if (normativeTable) {
-      const result = findScalars(newInputs, normativeTable, wnvTests, wnvIndexes);
+      const result = findScalars(
+        newInputs,
+        normativeTable,
+        wnvTests,
+        wnvIndexes,
+      );
       setScalarPoints(result.points);
       setIndexesSum(result.sum);
     }
@@ -68,38 +95,41 @@ export const WnvScalePage: React.FC = () => {
     setError(null);
     try {
       await addEvaluation({
+        patient: patientId,
         patientId,
-        scale: 'wnv',
-        type: 'wnv',
-        name: `Evaluación WNV - ${evalDate}`,
+        scale: "wnv",
+        type: "wnv",
+        name: evalNameParam,
         date: evalDate,
         testDay: evalDate,
-        years: parseInt(yearsStr, 10),
-        months: parseInt(monthsStr, 10),
-        age: { years: parseInt(yearsStr, 10), months: parseInt(monthsStr, 10) },
+        years: yearsNum,
+        months: monthsNum,
+        days: daysNum,
+        age: { years: yearsNum, months: monthsNum, days: daysNum },
+        scores: inputs,
         rawScores: inputs,
         scalarScores: scalarPoints,
         indexesSum: indexesSum,
         indexes: composes,
         data: {
           sum: indexesSum,
-          composes: composes
-        }
+          composes: composes,
+        },
       });
       setSuccess(true);
       setTimeout(() => {
         navigate(`/patient/${patientId}`);
       }, 1500);
     } catch (err: any) {
-      setError(err.message || 'Error guardando evaluación');
+      setError(err.message || "Error guardando evaluación");
     } finally {
       setSaving(false);
     }
   };
 
-  const firstName = patient?.name || patient?.firstName || '';
-  const lastName = patient?.lastname || patient?.lastName || '';
-  const fullName = `${firstName} ${lastName}`.trim() || 'Paciente';
+  const firstName = patient?.firstName;
+  const lastName = patient?.lastName;
+  const fullName = `${firstName} ${lastName}`.trim() || "Paciente";
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -108,7 +138,10 @@ export const WnvScalePage: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <Link to={`/patient/${patientId}`} className="hover:text-indigo-600 flex items-center space-x-1">
+            <Link
+              to={`/patient/${patientId}`}
+              className="hover:text-indigo-600 flex items-center space-x-1"
+            >
               <ArrowLeft className="w-4 h-4" />
               <span>Volver al Paciente</span>
             </Link>
@@ -122,7 +155,7 @@ export const WnvScalePage: React.FC = () => {
             className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white font-semibold text-sm transition shadow-sm"
           >
             <Save className="w-4 h-4" />
-            <span>{saving ? 'Guardando...' : 'Guardar Evaluación'}</span>
+            <span>{saving ? "Guardando..." : "Guardar Evaluación"}</span>
           </button>
         </div>
 
@@ -153,7 +186,9 @@ export const WnvScalePage: React.FC = () => {
             <div className="text-right">
               <div className="flex items-center space-x-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
                 <Brain className="w-4 h-4 text-indigo-600" />
-                <span>Edad: {yearsStr} años, {monthsStr} meses</span>
+                <span>
+                  Edad: {yearsStr} años, {monthsStr} meses
+                </span>
               </div>
             </div>
           </div>

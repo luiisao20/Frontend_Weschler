@@ -4,11 +4,12 @@ import { Navbar } from '../../components/layout/Navbar';
 import { TableTests } from '../../components/tables/TableTests';
 import { IndexesSum } from '../../components/tables/IndexesSum';
 import { TableIndexes } from '../../components/tables/TableIndexes';
-import { wppsiTests, wppsiPrimaryIndexes } from '../../data/scaleInfo/wppsiInfo';
-import { findScalars, getScales } from '../../utils/psychometrics';
+import { CompositeScoresChart } from '../../components/charts/CompositeScoresChart';
+import { wppsiTests, wppsiPrimaryIndexes, wppsiSecondaryIndexes } from '../../data/scaleInfo/wppsiInfo';
+import { findScalars, findComposes, getScales, extractCompositeScore } from '../../utils/psychometrics';
 import { addEvaluation, getPatientById } from '../../services/firestore';
 import { Patient } from '../../types';
-import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle, Calculator } from 'lucide-react';
 
 export const WppsiScalePage: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -17,16 +18,51 @@ export const WppsiScalePage: React.FC = () => {
 
   const yearsStr = searchParams.get('years') || '4';
   const monthsStr = searchParams.get('months') || '0';
+  const daysStr = searchParams.get('days') || '0';
   const evalDate = searchParams.get('evalDate') || new Date().toISOString().split('T')[0];
+  const evalNameParam = searchParams.get('name') || `Evaluación WPPSI - ${evalDate}`;
+
+  const yearsNum = parseInt(yearsStr, 10);
+  const monthsNum = parseInt(monthsStr, 10);
+  const daysNum = parseInt(daysStr, 10);
+  const chrAge = yearsNum + monthsNum / 12;
+
+  // Age group 1: 2:6 to 3:11 (< 4 years old) -> 7 subtests
+  // Age group 2: 4:0 to 7:7 (>= 4 years old) -> 15 subtests
+  const isEarlyAge = chrAge < 4;
+  const earlyTestOrder = ['D', 'C', 'R', 'I', 'RO', 'L', 'N'];
+  const lateTestOrder = ['C', 'I', 'M', 'BA', 'R', 'S', 'CON', 'CA', 'L', 'RO', 'V', 'CF', 'CO', 'D', 'N'];
+
+  const orderList = isEarlyAge ? earlyTestOrder : lateTestOrder;
+  const applicableTests = orderList
+    .map(code => wppsiTests.find(t => t.code === code))
+    .filter((t): t is typeof wppsiTests[0] => Boolean(t));
+
+  const applicablePrimaryIndexes = isEarlyAge
+    ? wppsiPrimaryIndexes.filter(i => !i.restriction)
+    : wppsiPrimaryIndexes;
+
+  const applicableSecondaryIndexes = isEarlyAge
+    ? wppsiSecondaryIndexes.filter(i => !i.restriction)
+    : wppsiSecondaryIndexes;
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [inputs, setInputs] = useState<Record<string, number | string>>({});
   const [scalarPoints, setScalarPoints] = useState<Record<string, number>>({});
-  const [indexesSum, setIndexesSum] = useState<Record<string, number>>({});
-  const [composes, setComposes] = useState<Record<string, any>>({});
-  const [saving, setSaving] = useState(false);
+
+  const [primaryIndexesSum, setPrimaryIndexesSum] = useState<Record<string, number>>({});
+  const [secondaryIndexesSum, setSecondaryIndexesSum] = useState<Record<string, number>>({});
+
+  const [primaryComposes, setPrimaryComposes] = useState<Record<string, any>>({});
+  const [secondaryComposes, setSecondaryComposes] = useState<Record<string, any>>({});
+
+  const [primaryIndexTables, setPrimaryIndexTables] = useState<any[]>([]);
+  const [secondaryIndexTables, setSecondaryIndexTables] = useState<any[]>([]);
+
+  const [showRange, setShowRange] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<boolean>(false);
 
   const [normativeTable, setNormativeTable] = useState<any>(null);
 
@@ -37,25 +73,142 @@ export const WppsiScalePage: React.FC = () => {
   }, [patientId]);
 
   useEffect(() => {
-    const ageObj = { years: parseInt(yearsStr, 10), months: parseInt(monthsStr, 10) };
+    const ageObj = { years: yearsNum, months: monthsNum };
+    console.log('[WPPSI getScales request]', ageObj);
     getScales(ageObj, 'wppsi')
-      .then(res => setNormativeTable(res.table))
+      .then(res => {
+        console.log('[WPPSI getScales response]', res);
+        setNormativeTable(res.table);
+        if (res.indexes?.primary) {
+          console.log('[WPPSI primaryIndexTables set]', res.indexes.primary);
+          setPrimaryIndexTables(res.indexes.primary);
+        } else {
+          console.warn('[WPPSI primaryIndexTables MISSING in res.indexes]', res.indexes);
+        }
+        if (res.indexes?.secondary) {
+          console.log('[WPPSI secondaryIndexTables set]', res.indexes.secondary);
+          setSecondaryIndexTables(res.indexes.secondary);
+        } else {
+          console.warn('[WPPSI secondaryIndexTables MISSING in res.indexes]', res.indexes);
+        }
+      })
       .catch(err => {
-        console.error('Error loading WPPSI table:', err);
+        console.error('Error loading WPPSI tables:', err);
         setError(err instanceof Error ? err.message : String(err));
       });
-  }, [yearsStr, monthsStr]);
+  }, [yearsNum, monthsNum]);
+
+  const computeAll = (currentInputs: Record<string, number | string>) => {
+    console.log('[WPPSI computeAll CALLED]', {
+      currentInputs,
+      normativeTable: Boolean(normativeTable),
+      primaryIndexTablesLength: primaryIndexTables?.length,
+      secondaryIndexTablesLength: secondaryIndexTables?.length,
+      isEarlyAge
+    });
+
+    if (!normativeTable) {
+      console.warn('[WPPSI computeAll ABORTED] normativeTable is null/undefined');
+      return;
+    }
+
+    // Primary calculation
+    const primaryRes = findScalars(currentInputs, normativeTable, applicableTests, applicablePrimaryIndexes, 'primary', isEarlyAge);
+    console.log('[WPPSI primaryRes]:', primaryRes);
+    setScalarPoints(primaryRes.points);
+    setPrimaryIndexesSum(primaryRes.sum);
+
+    if (primaryIndexTables && primaryIndexTables.length > 0) {
+      const computedPrimary = findComposes(primaryRes.sum, primaryIndexTables, isEarlyAge);
+      console.log('[WPPSI computedPrimary]:', computedPrimary);
+      setPrimaryComposes(computedPrimary);
+    } else {
+      console.warn('[WPPSI primaryIndexTables empty, skipping findComposes]');
+    }
+
+    // Secondary calculation
+    const secondaryRes = findScalars(currentInputs, normativeTable, applicableTests, applicableSecondaryIndexes, 'secondary', isEarlyAge);
+    console.log('[WPPSI secondaryRes]:', secondaryRes);
+    setSecondaryIndexesSum(secondaryRes.sum);
+
+    if (secondaryIndexTables && secondaryIndexTables.length > 0) {
+      const computedSecondary = findComposes(secondaryRes.sum, secondaryIndexTables, isEarlyAge);
+      console.log('[WPPSI computedSecondary]:', computedSecondary);
+      setSecondaryComposes(computedSecondary);
+    } else {
+      console.warn('[WPPSI secondaryIndexTables empty, skipping findComposes]');
+    }
+  };
+
+  useEffect(() => {
+    console.log('[WPPSI useEffect auto-compute check]', {
+      hasNormative: Boolean(normativeTable),
+      inputsLength: Object.keys(inputs).length,
+      primaryTablesLength: primaryIndexTables?.length
+    });
+    if (normativeTable && Object.keys(inputs).length > 0) {
+      computeAll(inputs);
+    }
+  }, [normativeTable, primaryIndexTables, secondaryIndexTables]);
 
   const handleInputChange = (code: string, val: string) => {
     const newInputs = { ...inputs, [code]: val };
     setInputs(newInputs);
-
-    if (normativeTable) {
-      const result = findScalars(newInputs, normativeTable, wppsiTests, wppsiPrimaryIndexes, 'primary');
-      setScalarPoints(result.points);
-      setIndexesSum(result.sum);
-    }
+    computeAll(newInputs);
   };
+
+  const parseIntervalLimits = (item: any, confidence: '90' | '95') => {
+    if (typeof item !== 'object' || item === null) return { lower: 0, upper: 0 };
+    const key = confidence === '90' ? '90%' : '95%';
+    const intervalStr = item[key] || item[confidence === '90' ? 'ic90' : 'ic95'];
+    if (intervalStr && String(intervalStr).includes('-')) {
+      const parts = String(intervalStr).split('-');
+      const lower = parseInt(parts[0], 10);
+      const upper = parseInt(parts[1], 10);
+      return { lower: isNaN(lower) ? 0 : lower, upper: isNaN(upper) ? 0 : upper };
+    }
+    return { lower: 0, upper: 0 };
+  };
+
+  const primaryChartData = (() => {
+    const validItems = applicablePrimaryIndexes.map(i => {
+      const val = extractCompositeScore(primaryComposes[i.code], i.code);
+      const limits = parseIntervalLimits(primaryComposes[i.code], showRange ? '95' : '90');
+      return {
+        code: i.code,
+        val: val > 0 ? val : null,
+        upper: limits.upper > 0 ? limits.upper : null,
+        lower: limits.lower > 0 ? limits.lower : null
+      };
+    }).filter(item => item.val !== null);
+
+    return {
+      xlabel: validItems.map(i => i.code),
+      values: validItems.map(i => i.val as number),
+      upperLimits: validItems.map(i => i.upper as number),
+      lowerLimits: validItems.map(i => i.lower as number)
+    };
+  })();
+
+  const secondaryChartData = (() => {
+    const validItems = applicableSecondaryIndexes.map(i => {
+      const val = extractCompositeScore(secondaryComposes[i.code], i.code);
+      const limits = parseIntervalLimits(secondaryComposes[i.code], showRange ? '95' : '90');
+      return {
+        code: i.code,
+        val: val > 0 ? val : null,
+        upper: limits.upper > 0 ? limits.upper : null,
+        lower: limits.lower > 0 ? limits.lower : null
+      };
+    }).filter(item => item.val !== null);
+
+    return {
+      xlabel: validItems.map(i => i.code),
+      values: validItems.map(i => i.val as number),
+      upperLimits: validItems.map(i => i.upper as number),
+      lowerLimits: validItems.map(i => i.lower as number)
+    };
+  })();
 
   const handleSave = async () => {
     if (!patientId) return;
@@ -64,22 +217,28 @@ export const WppsiScalePage: React.FC = () => {
     setError(null);
     try {
       await addEvaluation({
+        patient: patientId,
         patientId,
         scale: 'wppsi',
         type: 'wppsi',
-        name: `Evaluación WPPSI - ${evalDate}`,
+        name: evalNameParam,
         date: evalDate,
         testDay: evalDate,
-        years: parseInt(yearsStr, 10),
-        months: parseInt(monthsStr, 10),
-        age: { years: parseInt(yearsStr, 10), months: parseInt(monthsStr, 10) },
+        years: yearsNum,
+        months: monthsNum,
+        days: daysNum,
+        age: { years: yearsNum, months: monthsNum, days: daysNum },
+        scores: inputs,
         rawScores: inputs,
         scalarScores: scalarPoints,
-        indexesSum: indexesSum,
-        indexes: composes,
+        indexesSum: primaryIndexesSum,
+        indexes: primaryComposes,
+        secondaryIndexes: secondaryComposes,
         data: {
-          primarySum: indexesSum,
-          primaryComposes: composes
+          primarySum: primaryIndexesSum,
+          primaryComposes: primaryComposes,
+          secondarySum: secondaryIndexesSum,
+          secondaryComposes: secondaryComposes
         }
       });
       setSuccess(true);
@@ -93,8 +252,8 @@ export const WppsiScalePage: React.FC = () => {
     }
   };
 
-  const firstName = patient?.name || patient?.firstName || '';
-  const lastName = patient?.lastname || patient?.lastName || '';
+  const firstName =patient?.firstName;
+  const lastName = patient?.lastName;
   const fullName = `${firstName} ${lastName}`.trim() || 'Paciente';
 
   return (
@@ -112,14 +271,25 @@ export const WppsiScalePage: React.FC = () => {
             <span className="text-gray-900 font-medium">{fullName}</span>
           </div>
 
-          <button
-            onClick={handleSave}
-            disabled={saving || Object.keys(scalarPoints).length === 0}
-            className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white font-semibold text-sm transition shadow-sm"
-          >
-            <Save className="w-4 h-4" />
-            <span>{saving ? 'Guardando...' : 'Guardar Evaluación'}</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            <button
+              type="button"
+              onClick={() => computeAll(inputs)}
+              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-sm transition border border-indigo-200 shadow-xs"
+            >
+              <Calculator className="w-4 h-4 text-indigo-600" />
+              <span>Calcular Índices</span>
+            </button>
+
+            <button
+              onClick={handleSave}
+              disabled={saving || Object.keys(scalarPoints).length === 0}
+              className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white font-semibold text-sm transition shadow-sm"
+            >
+              <Save className="w-4 h-4" />
+              <span>{saving ? 'Guardando...' : 'Guardar Evaluación'}</span>
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -140,7 +310,7 @@ export const WppsiScalePage: React.FC = () => {
           <div className="flex items-center justify-between border-b border-gray-100 pb-4">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
-                WPPSI-IV
+                WPPSI-IV ({isEarlyAge ? '2:6 - 3:11 años' : '4:0 - 7:7 años'})
               </span>
               <h1 className="text-2xl font-bold text-gray-900 mt-2">
                 Escala de Inteligencia Preescolar y Primaria
@@ -155,28 +325,69 @@ export const WppsiScalePage: React.FC = () => {
           </div>
 
           <TableTests
-            tests={wppsiTests}
+            tests={applicableTests}
             inputs={inputs}
             scalarPoints={scalarPoints}
             onInputChange={handleInputChange}
           />
         </div>
 
-        {Object.keys(indexesSum).length > 0 && (
-          <div className="space-y-6">
-            <IndexesSum
-              indexes={wppsiPrimaryIndexes}
-              indexesSum={indexesSum}
-              title="Análisis Primario - Suma Escalar"
-            />
+        {/* 2-Column Grid Layout: Primary Analysis (Left) vs Secondary Analysis (Right) */}
+        {(Object.keys(primaryIndexesSum).length > 0 || Object.keys(secondaryIndexesSum).length > 0) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+            {/* Primary Analysis Column (Left) */}
+            {Object.keys(primaryIndexesSum).length > 0 && (
+              <div className="space-y-6">
+                <IndexesSum
+                  indexes={applicablePrimaryIndexes}
+                  indexesSum={primaryIndexesSum}
+                  title="Análisis Primario - Suma Escalar"
+                />
 
-            <TableIndexes
-              indexes={wppsiPrimaryIndexes}
-              composes={composes}
-            />
+                <TableIndexes
+                  indexes={applicablePrimaryIndexes}
+                  composes={primaryComposes}
+                  onRangeChange={setShowRange}
+                />
+
+                {Object.keys(primaryComposes).length > 0 && (
+                  <CompositeScoresChart
+                    dataGraphics={primaryChartData}
+                    range={showRange}
+                    title="Análisis Primario - Puntuaciones compuestas"
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Secondary Analysis Column (Right) */}
+            {Object.keys(secondaryIndexesSum).length > 0 && (
+              <div className="space-y-6">
+                <IndexesSum
+                  indexes={applicableSecondaryIndexes}
+                  indexesSum={secondaryIndexesSum}
+                  title="Análisis Secundario - Suma Escalar"
+                />
+
+                <TableIndexes
+                  indexes={applicableSecondaryIndexes}
+                  composes={secondaryComposes}
+                  onRangeChange={setShowRange}
+                />
+
+                {Object.keys(secondaryComposes).length > 0 && (
+                  <CompositeScoresChart
+                    dataGraphics={secondaryChartData}
+                    range={showRange}
+                    title="Análisis Secundario - Puntuaciones compuestas"
+                  />
+                )}
+              </div>
+            )}
           </div>
         )}
       </main>
     </div>
   );
 };
+

@@ -100,12 +100,20 @@ export async function getEvaluationsByPatient(patientId: string): Promise<Evalua
   return Array.from(evalMap.values());
 }
 
-export async function addEvaluation(evaluationData: Omit<Evaluation, 'id'>): Promise<string> {
-  const pid = (evaluationData as any).patientId || (evaluationData as any).patient;
+export async function addEvaluation(evaluationData: Omit<Evaluation, 'id'> | (Partial<Evaluation> & Record<string, any>)): Promise<string> {
+  const pid = evaluationData.patientId || evaluationData.patient || '';
+  const rawAge = evaluationData.age || {};
+  const age = {
+    years: typeof rawAge.years === 'number' ? rawAge.years : (evaluationData.years || 0),
+    months: typeof rawAge.months === 'number' ? rawAge.months : (evaluationData.months || 0),
+    days: typeof rawAge.days === 'number' ? rawAge.days : (evaluationData.days || 0)
+  };
+
   const docRef = await addDoc(collection(db, 'evaluations'), {
     ...evaluationData,
     patient: pid,
     patientId: pid,
+    age,
     createdAt: new Date().toISOString()
   });
   return docRef.id;

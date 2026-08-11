@@ -1,16 +1,18 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { LoginPage } from './pages/LoginPage';
-import { HomePage } from './pages/HomePage';
-import { PatientPage } from './pages/PatientPage';
-import { UserProfilePage } from './pages/UserProfilePage';
-import { WaisScalePage } from './pages/scales/WaisScalePage';
-import { WiscScalePage } from './pages/scales/WiscScalePage';
-import { WppsiScalePage } from './pages/scales/WppsiScalePage';
-import { WnvScalePage } from './pages/scales/WnvScalePage';
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { LoginPage } from "./pages/LoginPage";
+import { HomePage } from "./pages/HomePage";
+import { PatientPage } from "./pages/PatientPage";
+import { UserProfilePage } from "./pages/UserProfilePage";
+import { WaisScalePage } from "./pages/scales/WaisScalePage";
+import { WiscScalePage } from "./pages/scales/WiscScalePage";
+import { WppsiScalePage } from "./pages/scales/WppsiScalePage";
+import { WnvScalePage } from "./pages/scales/WnvScalePage";
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -34,7 +36,7 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          
+
           <Route
             path="/home"
             element={

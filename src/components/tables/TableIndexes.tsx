@@ -25,29 +25,60 @@ export const TableIndexes: React.FC<TableIndexesProps> = ({
 
   const getCompositeScore = (comp: any, code: string): string => {
     if (!comp) return '-';
+    if (typeof comp === 'number' || typeof comp === 'string') return String(comp);
+
     if (comp[code] !== undefined && comp[code] !== null) return String(comp[code]);
     if (comp.composite !== undefined && comp.composite !== null) return String(comp.composite);
     if (comp.score !== undefined && comp.score !== null) return String(comp.score);
+    if (comp.value !== undefined && comp.value !== null) return String(comp.value);
+
+    // Search by key starting with code (e.g. comp['ICV 2-6 3-11'])
+    const codeKey = Object.keys(comp).find(k => k.toUpperCase().startsWith(code.toUpperCase()));
+    if (codeKey && comp[codeKey] !== undefined && comp[codeKey] !== null) {
+      return String(comp[codeKey]);
+    }
+
+    // Fallback: any numeric property excluding percentiles and confidence intervals
+    const ignoreKeys = ['percentil', 'percentile', '90%', '95%', 'ic90', 'ic95', 'rango'];
+    const numericKey = Object.keys(comp).find(k => {
+      const lowerK = k.toLowerCase();
+      if (ignoreKeys.some(ik => lowerK.includes(ik))) return false;
+      const val = comp[k];
+      return typeof val === 'number' || (typeof val === 'string' && !isNaN(Number(val)) && String(val).trim() !== '');
+    });
+
+    if (numericKey && comp[numericKey] !== undefined && comp[numericKey] !== null) {
+      return String(comp[numericKey]);
+    }
+
     return '-';
   };
 
   const getPercentile = (comp: any): string => {
-    if (!comp) return '-';
-    if (comp.Percentil !== undefined && comp.Percentil !== null) return String(comp.Percentil);
-    if (comp.PERCENTIL !== undefined && comp.PERCENTIL !== null) return String(comp.PERCENTIL);
-    if (comp.percentile !== undefined && comp.percentile !== null) return String(comp.percentile);
+    if (!comp || typeof comp !== 'object') return '-';
+    const keys = Object.keys(comp);
+    const percentileKey = keys.find(k => k.toLowerCase().includes('percentil') || k.toLowerCase().includes('percentile'));
+    if (percentileKey && comp[percentileKey] !== undefined && comp[percentileKey] !== null) {
+      return String(comp[percentileKey]);
+    }
     return '-';
   };
 
   const getConfidenceInterval = (comp: any, is95: boolean): string => {
-    if (!comp) return '-';
-    if (!is95) {
-      if (comp['90%']) return String(comp['90%']);
-      if (comp.ic90) return Array.isArray(comp.ic90) ? comp.ic90.join('-') : String(comp.ic90);
-    } else {
-      if (comp['95%']) return String(comp['95%']);
-      if (comp.ic95) return Array.isArray(comp.ic95) ? comp.ic95.join('-') : String(comp.ic95);
+    if (!comp || typeof comp !== 'object') return '-';
+    const target = is95 ? '95%' : '90%';
+    const altTarget = is95 ? 'ic95' : 'ic90';
+
+    if (comp[target] !== undefined && comp[target] !== null) return String(comp[target]);
+    if (comp[altTarget] !== undefined && comp[altTarget] !== null) {
+      return Array.isArray(comp[altTarget]) ? comp[altTarget].join('-') : String(comp[altTarget]);
     }
+
+    const key = Object.keys(comp).find(k => k.toLowerCase().includes(target.toLowerCase()) || k.toLowerCase().includes(altTarget));
+    if (key && comp[key] !== undefined && comp[key] !== null) {
+      return Array.isArray(comp[key]) ? comp[key].join('-') : String(comp[key]);
+    }
+
     return '-';
   };
 

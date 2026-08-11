@@ -1,5 +1,5 @@
-import React from 'react';
-import Chart from 'react-apexcharts';
+import React from "react";
+import Chart from "react-apexcharts";
 
 interface CompositeScoresChartProps {
   dataGraphics: {
@@ -15,28 +15,29 @@ interface CompositeScoresChartProps {
 export const CompositeScoresChart: React.FC<CompositeScoresChartProps> = ({
   dataGraphics,
   range = false,
-  title = "Perfil de Puntuaciones Compuestas"
+  title = "Perfil de Puntuaciones Compuestas",
 }) => {
-  const categories = dataGraphics.xlabel && dataGraphics.xlabel.length > 0
-    ? dataGraphics.xlabel
-    : ['ICV', 'IVE', 'IRF', 'IMT', 'IVP', 'CIT'];
+  const categories =
+    dataGraphics.xlabel && dataGraphics.xlabel.length > 0
+      ? dataGraphics.xlabel
+      : ["ICV", "IVE", "IRF", "IMT", "IVP", "CIT"];
 
   const hasLimitsData = Boolean(
     dataGraphics.upperLimits &&
     dataGraphics.upperLimits.length > 0 &&
-    dataGraphics.upperLimits.some(v => v > 0)
+    dataGraphics.upperLimits.some((v) => v > 0),
   );
 
   // Always display limits whenever upper & lower limits data is available
   const showLimits = hasLimitsData;
-  const confidenceLabel = range ? '95%' : '90%';
+  const confidenceLabel = range ? "95%" : "90%";
 
   // Calculate dynamic smart Y-axis bounds to enlarge vertical resolution
   const allVals: number[] = [
     ...(dataGraphics.values || []),
     ...(showLimits ? dataGraphics.upperLimits || [] : []),
-    ...(showLimits ? dataGraphics.lowerLimits || [] : [])
-  ].filter(v => v > 0);
+    ...(showLimits ? dataGraphics.lowerLimits || [] : []),
+  ].filter((v): v is number => v !== null && v !== undefined && typeof v === 'number' && v > 0);
 
   let minY = 40;
   let maxY = 160;
@@ -44,7 +45,7 @@ export const CompositeScoresChart: React.FC<CompositeScoresChartProps> = ({
   if (allVals.length > 0) {
     const minObserved = Math.min(...allVals);
     const maxObserved = Math.max(...allVals);
-    
+
     minY = Math.max(40, Math.floor((minObserved - 12) / 10) * 10);
     maxY = Math.min(160, Math.ceil((maxObserved + 12) / 10) * 10);
 
@@ -56,52 +57,52 @@ export const CompositeScoresChart: React.FC<CompositeScoresChartProps> = ({
   const series = showLimits
     ? [
         {
-          name: `Límite Superior (IC ${confidenceLabel})`,
-          data: dataGraphics.upperLimits || []
+          name: "Puntuación Compuesta",
+          data: (dataGraphics.values || []).map(v => (v && v > 0 ? v : null)),
         },
         {
-          name: 'Puntuación Compuesta',
-          data: dataGraphics.values || []
+          name: `Límite Superior (IC ${confidenceLabel})`,
+          data: (dataGraphics.upperLimits || []).map(v => (v && v > 0 ? v : null)),
         },
         {
           name: `Límite Inferior (IC ${confidenceLabel})`,
-          data: dataGraphics.lowerLimits || []
-        }
+          data: (dataGraphics.lowerLimits || []).map(v => (v && v > 0 ? v : null)),
+        },
       ]
     : [
         {
-          name: 'Puntuación Compuesta',
-          data: dataGraphics.values || []
-        }
+          name: "Puntuación Compuesta",
+          data: (dataGraphics.values || []).map(v => (v && v > 0 ? v : null)),
+        },
       ];
 
   const options: ApexCharts.ApexOptions = {
     chart: {
-      type: 'line',
+      type: "line",
       height: 420,
       toolbar: { show: false },
-      zoom: { enabled: false }
+      zoom: { enabled: false },
     },
-    colors: showLimits ? ['#059669', '#4F46E5', '#DC2626'] : ['#4F46E5'],
+    colors: showLimits ? ["#4F46E5", "#0D9488", "#0284C7"] : ["#4F46E5"],
     stroke: {
-      curve: 'smooth',
-      width: showLimits ? [2.5, 4, 2.5] : [4],
-      dashArray: showLimits ? [5, 0, 5] : [0]
+      curve: "smooth",
+      width: showLimits ? [4.5, 2, 2] : [4.5],
+      dashArray: showLimits ? [0, 5, 5] : [0],
     },
     markers: {
-      size: showLimits ? [5, 7, 5] : [7],
+      size: showLimits ? [8, 5, 5] : [8],
       strokeWidth: 2,
-      hover: { size: 9 }
+      hover: { size: 10 },
     },
     xaxis: {
       categories: categories,
       labels: {
         style: {
           fontWeight: 700,
-          colors: '#374151',
-          fontSize: '12px'
-        }
-      }
+          colors: "#374151",
+          fontSize: "12px",
+        },
+      },
     },
     yaxis: {
       min: minY,
@@ -110,59 +111,57 @@ export const CompositeScoresChart: React.FC<CompositeScoresChartProps> = ({
       labels: {
         style: {
           fontWeight: 600,
-          colors: '#6B7280'
+          colors: "#6B7280",
         },
-        formatter: (val: number) => val.toFixed(0)
-      }
+        formatter: (val: number) => val.toFixed(0),
+      },
     },
     grid: {
-      borderColor: '#F3F4F6',
-      strokeDashArray: 4
+      borderColor: "#F3F4F6",
+      strokeDashArray: 4,
     },
     dataLabels: {
       enabled: true,
+      formatter: (val: any) => {
+        if (val === null || val === undefined || val === 0 || isNaN(val)) return '';
+        return String(val);
+      },
       style: {
-        fontSize: '11px',
-        fontWeight: '800',
-        colors: showLimits ? ['#047857', '#4338CA', '#B91C1C'] : ['#4338CA']
+        fontSize: "11px",
+        fontWeight: "800",
+        colors: showLimits ? ["#4338CA", "#0F766E", "#0369A1"] : ["#4338CA"],
       },
       background: {
         enabled: true,
         padding: 5,
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: '#E5E7EB',
-        opacity: 0.95
+        borderColor: "#E5E7EB",
+        opacity: 0.95,
       },
       dropShadow: {
-        enabled: false
-      }
+        enabled: false,
+      },
     },
     tooltip: {
       shared: true,
       intersect: false,
-      theme: 'light',
+      theme: "light",
       y: {
         formatter: (val: number, { seriesIndex }: any) => {
-          if (val === undefined || val === null || val === 0) return '-';
+          if (val === undefined || val === null || val === 0) return "-";
           if (showLimits) {
-            if (seriesIndex === 0) return `${val} (Sup IC ${confidenceLabel})`;
-            if (seriesIndex === 1) return `${val} (Punt. Compuesta)`;
+            if (seriesIndex === 0) return `${val} (Punt. Compuesta)`;
+            if (seriesIndex === 1) return `${val} (Sup IC ${confidenceLabel})`;
             if (seriesIndex === 2) return `${val} (Inf IC ${confidenceLabel})`;
           }
           return `${val}`;
-        }
-      }
+        },
+      },
     },
     legend: {
-      position: 'bottom',
-      horizontalAlign: 'center',
-      fontSize: '13px',
-      fontWeight: 600,
-      markers: {
-        size: 7
-      }
-    }
+      show: false,
+    },
   };
 
   return (

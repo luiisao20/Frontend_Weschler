@@ -6,7 +6,7 @@ import { IndexesSum } from '../../components/tables/IndexesSum';
 import { TableIndexes } from '../../components/tables/TableIndexes';
 import { CompositeScoresChart } from '../../components/charts/CompositeScoresChart';
 import { wiscTests, wiscPrimaryIndexes } from '../../data/scaleInfo/wiscInfo';
-import { findScalars, findComposes, getScales } from '../../utils/psychometrics';
+import { findScalars, findComposes, getScales, extractCompositeScore } from '../../utils/psychometrics';
 import { addEvaluation, getPatientById } from '../../services/firestore';
 import { Patient } from '../../types';
 import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle } from 'lucide-react';
@@ -18,8 +18,13 @@ export const WiscScalePage: React.FC = () => {
 
   const yearsStr = searchParams.get('years') || '10';
   const monthsStr = searchParams.get('months') || '0';
+  const daysStr = searchParams.get('days') || '0';
   const evalDate = searchParams.get('evalDate') || new Date().toISOString().split('T')[0];
   const evalNameParam = searchParams.get('name') || `Evaluación WISC - ${evalDate}`;
+
+  const yearsNum = parseInt(yearsStr, 10);
+  const monthsNum = parseInt(monthsStr, 10);
+  const daysNum = parseInt(daysStr, 10);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [inputs, setInputs] = useState<Record<string, number | string>>({});
@@ -84,17 +89,25 @@ export const WiscScalePage: React.FC = () => {
     return { lower: 0, upper: 0 };
   };
 
-  const chartGraphicsData = {
-    xlabel: wiscPrimaryIndexes.map(i => i.code),
-    values: wiscPrimaryIndexes.map(i => {
-      const item = composes[i.code];
-      if (!item) return 0;
-      const val = item[i.code] ?? item.composite ?? item.score;
-      return typeof val === 'number' ? val : (parseInt(String(val), 10) || 0);
-    }),
-    upperLimits: wiscPrimaryIndexes.map(i => parseIntervalLimits(composes[i.code], showRange ? '95' : '90').upper),
-    lowerLimits: wiscPrimaryIndexes.map(i => parseIntervalLimits(composes[i.code], showRange ? '90' : '90').lower)
-  };
+  const chartGraphicsData = (() => {
+    const validItems = wiscPrimaryIndexes.map(i => {
+      const val = extractCompositeScore(composes[i.code], i.code);
+      const limits = parseIntervalLimits(composes[i.code], showRange ? '95' : '90');
+      return {
+        code: i.code,
+        val: val > 0 ? val : null,
+        upper: limits.upper > 0 ? limits.upper : null,
+        lower: limits.lower > 0 ? limits.lower : null
+      };
+    }).filter(item => item.val !== null);
+
+    return {
+      xlabel: validItems.map(i => i.code),
+      values: validItems.map(i => i.val as number),
+      upperLimits: validItems.map(i => i.upper as number),
+      lowerLimits: validItems.map(i => i.lower as number)
+    };
+  })();
 
   const handleSave = async () => {
     if (!patientId) return;
@@ -110,9 +123,11 @@ export const WiscScalePage: React.FC = () => {
         name: evalNameParam,
         date: evalDate,
         testDay: evalDate,
-        years: parseInt(yearsStr, 10),
-        months: parseInt(monthsStr, 10),
-        age: { years: parseInt(yearsStr, 10), months: parseInt(monthsStr, 10) },
+        years: yearsNum,
+        months: monthsNum,
+        days: daysNum,
+        age: { years: yearsNum, months: monthsNum, days: daysNum },
+        scores: inputs,
         rawScores: inputs,
         scalarScores: scalarPoints,
         indexesSum: indexesSum,
@@ -133,8 +148,8 @@ export const WiscScalePage: React.FC = () => {
     }
   };
 
-  const firstName = patient?.name || patient?.firstName || '';
-  const lastName = patient?.lastname || patient?.lastName || '';
+  const firstName = patient?.firstName 
+  const lastName = patient?.lastName;
   const fullName = `${firstName} ${lastName}`.trim() || 'Paciente';
 
   return (
