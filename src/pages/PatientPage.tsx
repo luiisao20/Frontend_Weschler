@@ -276,12 +276,22 @@ export const PatientPage: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                      {ev.id ? (
+                        <Link
+                          to={`/patient/${id}/evaluation/${ev.id}/report`}
+                          className="text-xs font-bold text-teal-700 hover:text-teal-900 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-xl border border-teal-200 transition flex items-center space-x-1"
+                        >
+                          <FileText className="w-3.5 h-3.5 mr-1" />
+                          <span>Informe PDF</span>
+                        </Link>
+                      ) : <div />}
+
                       <button
                         onClick={() => setSelectedEval(ev)}
                         className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center space-x-1"
                       >
-                        <span>Ver Detalle Completo</span>
+                        <span>Ver Detalle</span>
                         <span>→</span>
                       </button>
                     </div>

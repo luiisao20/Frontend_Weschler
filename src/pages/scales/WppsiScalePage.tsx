@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Navbar } from '../../components/layout/Navbar';
-import { TableTests } from '../../components/tables/TableTests';
+import { IndexCompositionTable } from '../../components/tables/IndexCompositionTable';
 import { IndexesSum } from '../../components/tables/IndexesSum';
 import { TableIndexes } from '../../components/tables/TableIndexes';
 import { CompositeScoresChart } from '../../components/charts/CompositeScoresChart';
@@ -9,7 +9,8 @@ import { wppsiTests, wppsiPrimaryIndexes, wppsiSecondaryIndexes } from '../../da
 import { findScalars, findComposes, getScales, extractCompositeScore } from '../../utils/psychometrics';
 import { addEvaluation, getPatientById } from '../../services/firestore';
 import { Patient } from '../../types';
-import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle, Calculator } from 'lucide-react';
+import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle, Calculator, Pencil } from 'lucide-react';
+import { ModalEditRecordName } from '../../components/modals/ModalEditRecordName';
 
 export const WppsiScalePage: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -21,6 +22,8 @@ export const WppsiScalePage: React.FC = () => {
   const daysStr = searchParams.get('days') || '0';
   const evalDate = searchParams.get('evalDate') || new Date().toISOString().split('T')[0];
   const evalNameParam = searchParams.get('name') || `Evaluación WPPSI - ${evalDate}`;
+  const [evalName, setEvalName] = useState(evalNameParam);
+  const [isEditNameModalOpen, setIsEditNameModalOpen] = useState(false);
 
   const yearsNum = parseInt(yearsStr, 10);
   const monthsNum = parseInt(monthsStr, 10);
@@ -113,7 +116,7 @@ export const WppsiScalePage: React.FC = () => {
     }
 
     // Primary calculation
-    const primaryRes = findScalars(currentInputs, normativeTable, applicableTests, applicablePrimaryIndexes, 'primary', isEarlyAge);
+    const primaryRes = findScalars(currentInputs, normativeTable, applicableTests, applicablePrimaryIndexes, 'primary', isEarlyAge, 'wppsi');
     console.log('[WPPSI primaryRes]:', primaryRes);
     setScalarPoints(primaryRes.points);
     setPrimaryIndexesSum(primaryRes.sum);
@@ -127,7 +130,7 @@ export const WppsiScalePage: React.FC = () => {
     }
 
     // Secondary calculation
-    const secondaryRes = findScalars(currentInputs, normativeTable, applicableTests, applicableSecondaryIndexes, 'secondary', isEarlyAge);
+    const secondaryRes = findScalars(currentInputs, normativeTable, applicableTests, applicableSecondaryIndexes, 'secondary', isEarlyAge, 'wppsi');
     console.log('[WPPSI secondaryRes]:', secondaryRes);
     setSecondaryIndexesSum(secondaryRes.sum);
 
@@ -216,12 +219,12 @@ export const WppsiScalePage: React.FC = () => {
     setSaving(true);
     setError(null);
     try {
-      await addEvaluation({
+      const newEvalId = await addEvaluation({
         patient: patientId,
         patientId,
         scale: 'wppsi',
         type: 'wppsi',
-        name: evalNameParam,
+        name: evalName,
         date: evalDate,
         testDay: evalDate,
         years: yearsNum,
@@ -243,8 +246,8 @@ export const WppsiScalePage: React.FC = () => {
       });
       setSuccess(true);
       setTimeout(() => {
-        navigate(`/patient/${patientId}`);
-      }, 1500);
+        navigate(`/patient/${patientId}/evaluation/${newEvalId}/report`);
+      }, 1000);
     } catch (err: any) {
       setError(err.message || 'Error guardando evaluación');
     } finally {
@@ -312,9 +315,19 @@ export const WppsiScalePage: React.FC = () => {
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
                 WPPSI-IV ({isEarlyAge ? '2:6 - 3:11 años' : '4:0 - 7:7 años'})
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 mt-2">
-                Escala de Inteligencia Preescolar y Primaria
-              </h1>
+              <div className="flex items-center space-x-2 mt-2">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {evalName}
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => setIsEditNameModalOpen(true)}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+                  title="Editar nombre del registro"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="text-right">
               <div className="flex items-center space-x-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
@@ -324,11 +337,15 @@ export const WppsiScalePage: React.FC = () => {
             </div>
           </div>
 
-          <TableTests
+          <IndexCompositionTable
             tests={applicableTests}
+            primaryIndexes={applicablePrimaryIndexes}
+            secondaryIndexes={applicableSecondaryIndexes}
             inputs={inputs}
             scalarPoints={scalarPoints}
             onInputChange={handleInputChange}
+            isEarlyAge={isEarlyAge}
+            normativeTable={normativeTable}
           />
         </div>
 
@@ -386,6 +403,13 @@ export const WppsiScalePage: React.FC = () => {
             )}
           </div>
         )}
+
+        <ModalEditRecordName
+          isOpen={isEditNameModalOpen}
+          onClose={() => setIsEditNameModalOpen(false)}
+          currentName={evalName}
+          onSave={setEvalName}
+        />
       </main>
     </div>
   );

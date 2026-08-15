@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Calendar, Brain, BarChart2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { X, Calendar, Brain, BarChart2, FileText } from 'lucide-react';
 import { CompositeScoresChart } from '../charts/CompositeScoresChart';
 import { formatDate } from '../../utils/formatDate';
 
@@ -314,12 +315,24 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
             )}
           </div>
 
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-700 p-2 rounded-xl hover:bg-gray-200/60 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center space-x-2">
+            {evaluation?.id && (
+              <Link
+                to={`/evaluation/${evaluation.id}/report`}
+                className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-bold text-xs shadow-xs transition"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Generar Informe PDF</span>
+              </Link>
+            )}
+
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-700 p-2 rounded-xl hover:bg-gray-200/60 transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}

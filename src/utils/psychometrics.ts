@@ -1,7 +1,7 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import type { AgeCalculated } from '../types';
-import { selectReplacementsWAIS } from './replacements';
+import { selectReplacementsWAIS, selectReplacementsWAIS_CIT, selectReplacementsWISC, selectReplacementsWPPSI } from './replacements';
 
 export function parseAnyDate(dateStr: string | Date | number): Date | null {
   if (!dateStr) return null;
@@ -105,7 +105,8 @@ export function findScalars(
   tests: any[],
   indexes: any[],
   multipleIndexes?: string,
-  isEarlyAge?: boolean
+  isEarlyAge?: boolean,
+  scaleType?: 'wais' | 'wisc' | 'wppsi' | 'wnv'
 ) {
   const points: Record<string, number> = {};
   const sum: Record<string, number> = {};
@@ -136,7 +137,7 @@ export function findScalars(
   });
 
   // Special substitution and completeness logic for WPPSI Early Age (2:6 - 3:11)
-  if (isEarlyAge && (multipleIndexes === 'primary' || multipleIndexes === 'secondary')) {
+  if (scaleType === 'wppsi' && isEarlyAge && (multipleIndexes === 'primary' || multipleIndexes === 'secondary')) {
     indexes.forEach(indexObj => {
       const idxCode = indexObj.code;
 
@@ -256,7 +257,7 @@ export function findScalars(
   }
 
   // Special substitution and completeness logic for WPPSI Late Age (4:0 - 7:7)
-  if (!isEarlyAge && (multipleIndexes === 'primary' || multipleIndexes === 'secondary')) {
+  if (scaleType === 'wppsi' && !isEarlyAge && (multipleIndexes === 'primary' || multipleIndexes === 'secondary')) {
     indexes.forEach(indexObj => {
       const idxCode = indexObj.code;
 
@@ -597,18 +598,49 @@ export function findScalars(
 
     if (mainList && Array.isArray(mainList)) {
       let currentSum = 0;
+      let missingCount = 0;
       mainList.forEach((code: string) => {
         if (points[code] !== undefined) {
           currentSum += points[code];
+        } else {
+          missingCount++;
         }
       });
 
-      const replacement = selectReplacementsWAIS(indexObj.code, completed, uncompleted, points);
-      if (typeof replacement === 'number') {
-        currentSum += replacement;
-      }
+      let replacement: number | false = 0;
 
-      sum[indexObj.code] = currentSum;
+      // WAIS CIT: allows up to 2 substitutions — handled by its own function
+      if (scaleType === 'wais' && indexObj.code === 'CIT') {
+        const missingCodes = mainList.filter((code: string) => points[code] === undefined);
+        const citResult = selectReplacementsWAIS_CIT(missingCodes, completed, points);
+        if (missingCodes.length === 0) {
+          sum[indexObj.code] = currentSum;
+        } else if (citResult !== false) {
+          sum[indexObj.code] = currentSum + citResult;
+        } else {
+          delete sum[indexObj.code];
+        }
+      } else {
+        if (scaleType === 'wisc') {
+          replacement = selectReplacementsWISC(indexObj.code, completed, uncompleted, points);
+        } else if (scaleType === 'wppsi') {
+          replacement = selectReplacementsWPPSI(indexObj.code, completed, uncompleted, points);
+        } else if (scaleType === 'wais') {
+          replacement = selectReplacementsWAIS(indexObj.code, completed, uncompleted, points);
+        }
+
+        if (missingCount === 0) {
+          sum[indexObj.code] = currentSum;
+        } else if (missingCount === 1) {
+          if (typeof replacement === 'number' && replacement > 0) {
+            sum[indexObj.code] = currentSum + replacement;
+          } else {
+            delete sum[indexObj.code];
+          }
+        } else {
+          delete sum[indexObj.code];
+        }
+      }
     } else {
       let currentSum = 0;
       Object.keys(points).forEach(testCode => {

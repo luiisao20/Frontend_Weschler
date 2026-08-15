@@ -1,13 +1,18 @@
 export interface Patient {
   id?: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
+  lastname?: string;
   document: string;
   birthdate: string;
+  birthday?: string;
+  fechaNacimiento?: string;
   gender: string;
   location: string;
   owner: string;
   createdAt?: string;
+  [key: string]: any;
 }
 
 export interface AgeCalculated {
@@ -35,6 +40,9 @@ export interface Evaluation {
   indexesSum?: Record<string, number>;
   indexes?: Record<string, any>;
   data?: Record<string, any>;
+  verificationCode?: string;
+  verificationHash?: string;
+  verifiedAt?: string;
   createdAt?: string;
   [key: string]: any;
 }

@@ -6,13 +6,15 @@ interface TableIndexesProps {
   composes: Record<string, any>;
   onRangeChange?: (range: boolean) => void;
   showWNV?: boolean;
+  indexesSum?: Record<string, number>;
 }
 
 export const TableIndexes: React.FC<TableIndexesProps> = ({
   indexes,
   composes,
   onRangeChange,
-  showWNV = false
+  showWNV = false,
+  indexesSum
 }) => {
   const [range, setRange] = useState<boolean>(false);
 
@@ -130,7 +132,7 @@ export const TableIndexes: React.FC<TableIndexesProps> = ({
                   </td>
                   {showWNV && (
                     <td className="px-5 py-3.5 text-center font-bold text-gray-800">
-                      {composes.Sum !== undefined ? composes.Sum : '-'}
+                      {indexesSum && indexesSum[idx.code] !== undefined ? indexesSum[idx.code] : '-'}
                     </td>
                   )}
                   <td className="px-5 py-3.5 text-center font-bold text-base text-gray-900">

@@ -55,7 +55,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
     const newErrors: Record<string, string> = {};
     if (!evalName.trim()) newErrors.evalName = 'El nombre de la evaluación es requerido';
     if (!evalDate) newErrors.evalDate = 'La fecha de administración es requerida';
-    if (!birthdate) {
+    if (!birthdate && years === 0) {
       newErrors.birthdate = 'La fecha de nacimiento es requerida';
     } else if (birthdate > todayStr) {
       newErrors.birthdate = 'La fecha de nacimiento no puede ser posterior a hoy';

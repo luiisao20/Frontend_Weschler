@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Navbar } from '../../components/layout/Navbar';
-import { TableTests } from '../../components/tables/TableTests';
+import { IndexCompositionTable } from '../../components/tables/IndexCompositionTable';
 import { IndexesSum } from '../../components/tables/IndexesSum';
 import { TableIndexes } from '../../components/tables/TableIndexes';
 import { CompositeScoresChart } from '../../components/charts/CompositeScoresChart';
-import { wiscTests, wiscPrimaryIndexes } from '../../data/scaleInfo/wiscInfo';
+import { wiscTests, wiscPrimaryIndexes, wiscSecondaryIndexes } from '../../data/scaleInfo/wiscInfo';
 import { findScalars, findComposes, getScales, extractCompositeScore } from '../../utils/psychometrics';
 import { addEvaluation, getPatientById } from '../../services/firestore';
 import { Patient } from '../../types';
-import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
+import { ModalEditRecordName } from '../../components/modals/ModalEditRecordName';
 
 export const WiscScalePage: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -21,6 +22,8 @@ export const WiscScalePage: React.FC = () => {
   const daysStr = searchParams.get('days') || '0';
   const evalDate = searchParams.get('evalDate') || new Date().toISOString().split('T')[0];
   const evalNameParam = searchParams.get('name') || `Evaluación WISC - ${evalDate}`;
+  const [evalName, setEvalName] = useState(evalNameParam);
+  const [isEditNameModalOpen, setIsEditNameModalOpen] = useState(false);
 
   const yearsNum = parseInt(yearsStr, 10);
   const monthsNum = parseInt(monthsStr, 10);
@@ -29,15 +32,22 @@ export const WiscScalePage: React.FC = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [inputs, setInputs] = useState<Record<string, number | string>>({});
   const [scalarPoints, setScalarPoints] = useState<Record<string, number>>({});
-  const [indexesSum, setIndexesSum] = useState<Record<string, number>>({});
-  const [composes, setComposes] = useState<Record<string, any>>({});
+  
+  const [primaryIndexesSum, setPrimaryIndexesSum] = useState<Record<string, number>>({});
+  const [primaryComposes, setPrimaryComposes] = useState<Record<string, any>>({});
+  
+  const [secondaryIndexesSum, setSecondaryIndexesSum] = useState<Record<string, number>>({});
+  const [secondaryComposes, setSecondaryComposes] = useState<Record<string, any>>({});
+
   const [showRange, setShowRange] = useState(false);
+  const [showRangeSec, setShowRangeSec] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const [normativeTable, setNormativeTable] = useState<any>(null);
-  const [indexConversionTables, setIndexConversionTables] = useState<any[]>([]);
+  const [primaryIndexTables, setPrimaryIndexTables] = useState<any[]>([]);
+  const [secondaryIndexTables, setSecondaryIndexTables] = useState<any[]>([]);
 
   useEffect(() => {
     if (patientId) {
@@ -50,9 +60,8 @@ export const WiscScalePage: React.FC = () => {
     getScales(ageObj, 'wisc')
       .then(res => {
         setNormativeTable(res.table);
-        if (res.indexes && res.indexes.primary) {
-          setIndexConversionTables(res.indexes.primary);
-        }
+        if (res.indexes?.primary) setPrimaryIndexTables(res.indexes.primary);
+        if (res.indexes?.secondary) setSecondaryIndexTables(res.indexes.secondary);
       })
       .catch(err => {
         console.error('Error loading WISC table:', err);
@@ -60,20 +69,58 @@ export const WiscScalePage: React.FC = () => {
       });
   }, [yearsStr, monthsStr]);
 
+  const computeAll = (currentInputs: Record<string, number | string>) => {
+    if (!normativeTable || !normativeTable.data) return;
+
+    const missingKeys = Object.keys(currentInputs).filter(k => {
+      const val = currentInputs[k];
+      return val !== '' && val !== undefined && val !== null && !normativeTable.data[k];
+    });
+
+    if (missingKeys.length > 0) {
+      setError(`Advertencia: Las siguientes pruebas no existen en la base de datos de Firebase para el WISC: ${missingKeys.join(', ')}. Verifica las claves en Firebase.`);
+    } else {
+      setError(null);
+    }
+
+    // Primary
+    const primaryRes = findScalars(currentInputs, normativeTable, wiscTests, wiscPrimaryIndexes, 'primary', undefined, 'wisc');
+    
+    if (primaryRes.errors.outOfRange) {
+      const testObj = wiscTests.find(t => t.code === primaryRes.errors.outOfRange);
+      const testName = testObj ? testObj.name : primaryRes.errors.outOfRange;
+      setError(`El valor ingresado para la prueba ${testName} está fuera del rango permitido según la tabla. Revísalo.`);
+      return;
+    }
+    
+    setScalarPoints(primaryRes.points);
+    setPrimaryIndexesSum(primaryRes.sum);
+
+    if (primaryIndexTables && primaryIndexTables.length > 0) {
+      const computedPrimary = findComposes(primaryRes.sum, primaryIndexTables);
+      setPrimaryComposes(computedPrimary);
+    }
+
+    // Secondary
+    const secondaryRes = findScalars(currentInputs, normativeTable, wiscTests, wiscSecondaryIndexes, 'secondary', undefined, 'wisc');
+    setSecondaryIndexesSum(secondaryRes.sum);
+
+    if (secondaryIndexTables && secondaryIndexTables.length > 0) {
+      const computedSecondary = findComposes(secondaryRes.sum, secondaryIndexTables);
+      setSecondaryComposes(computedSecondary);
+    }
+  };
+
+  useEffect(() => {
+    if (normativeTable && Object.keys(inputs).length > 0) {
+      computeAll(inputs);
+    }
+  }, [normativeTable, primaryIndexTables, secondaryIndexTables]);
+
   const handleInputChange = (code: string, val: string) => {
     const newInputs = { ...inputs, [code]: val };
     setInputs(newInputs);
-
-    if (normativeTable) {
-      const result = findScalars(newInputs, normativeTable, wiscTests, wiscPrimaryIndexes, 'primary');
-      setScalarPoints(result.points);
-      setIndexesSum(result.sum);
-
-      if (indexConversionTables && indexConversionTables.length > 0) {
-        const computedComposes = findComposes(result.sum, indexConversionTables);
-        setComposes(computedComposes);
-      }
-    }
+    computeAll(newInputs);
   };
 
   const parseIntervalLimits = (item: any, confidence: '90' | '95') => {
@@ -89,10 +136,30 @@ export const WiscScalePage: React.FC = () => {
     return { lower: 0, upper: 0 };
   };
 
-  const chartGraphicsData = (() => {
+  const primaryChartData = (() => {
     const validItems = wiscPrimaryIndexes.map(i => {
-      const val = extractCompositeScore(composes[i.code], i.code);
-      const limits = parseIntervalLimits(composes[i.code], showRange ? '95' : '90');
+      const val = extractCompositeScore(primaryComposes[i.code], i.code);
+      const limits = parseIntervalLimits(primaryComposes[i.code], showRange ? '95' : '90');
+      return {
+        code: i.code,
+        val: val > 0 ? val : null,
+        upper: limits.upper > 0 ? limits.upper : null,
+        lower: limits.lower > 0 ? limits.lower : null
+      };
+    }).filter(item => item.val !== null);
+
+    return {
+      xlabel: validItems.map(i => i.code),
+      values: validItems.map(i => i.val as number),
+      upperLimits: validItems.map(i => i.upper as number),
+      lowerLimits: validItems.map(i => i.lower as number)
+    };
+  })();
+
+  const secondaryChartData = (() => {
+    const validItems = wiscSecondaryIndexes.map(i => {
+      const val = extractCompositeScore(secondaryComposes[i.code], i.code);
+      const limits = parseIntervalLimits(secondaryComposes[i.code], showRangeSec ? '95' : '90');
       return {
         code: i.code,
         val: val > 0 ? val : null,
@@ -115,12 +182,12 @@ export const WiscScalePage: React.FC = () => {
     setSaving(true);
     setError(null);
     try {
-      await addEvaluation({
+      const newEvalId = await addEvaluation({
         patient: patientId,
         patientId,
         scale: 'wisc',
         type: 'wisc',
-        name: evalNameParam,
+        name: evalName,
         date: evalDate,
         testDay: evalDate,
         years: yearsNum,
@@ -130,17 +197,19 @@ export const WiscScalePage: React.FC = () => {
         scores: inputs,
         rawScores: inputs,
         scalarScores: scalarPoints,
-        indexesSum: indexesSum,
-        indexes: composes,
+        indexesSum: { ...primaryIndexesSum, ...secondaryIndexesSum },
+        indexes: { ...primaryComposes, ...secondaryComposes },
         data: {
-          primarySum: indexesSum,
-          primaryComposes: composes
+          primarySum: primaryIndexesSum,
+          primaryComposes: primaryComposes,
+          secondarySum: secondaryIndexesSum,
+          secondaryComposes: secondaryComposes
         }
       });
       setSuccess(true);
       setTimeout(() => {
-        navigate(`/patient/${patientId}`);
-      }, 1500);
+        navigate(`/patient/${patientId}/evaluation/${newEvalId}/report`);
+      }, 1000);
     } catch (err: any) {
       setError(err.message || 'Error guardando evaluación');
     } finally {
@@ -148,46 +217,45 @@ export const WiscScalePage: React.FC = () => {
     }
   };
 
-  const firstName = patient?.firstName 
-  const lastName = patient?.lastName;
-  const fullName = `${firstName} ${lastName}`.trim() || 'Paciente';
-
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <Link to={`/patient/${patientId}`} className="hover:text-indigo-600 flex items-center space-x-1">
-              <ArrowLeft className="w-4 h-4" />
-              <span>Volver al Paciente</span>
-            </Link>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">{fullName}</span>
-          </div>
+          <Link
+            to={`/patient/${patientId}`}
+            className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver al paciente
+          </Link>
 
           <button
             onClick={handleSave}
-            disabled={saving || Object.keys(scalarPoints).length === 0}
-            className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white font-semibold text-sm transition shadow-sm"
+            disabled={saving || !!error}
+            className={`inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold text-white shadow-xs transition-all ${
+              saving || !!error
+                ? 'bg-indigo-400 cursor-not-allowed'
+                : 'bg-indigo-600 hover:bg-indigo-700 hover:shadow-md'
+            }`}
           >
-            <Save className="w-4 h-4" />
-            <span>{saving ? 'Guardando...' : 'Guardar Evaluación'}</span>
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? 'Guardando...' : 'Guardar Evaluación'}
           </button>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-2xl flex items-center space-x-2 text-sm">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span>{error}</span>
+          <div className="bg-red-50 border border-red-100 rounded-2xl p-4 flex items-start">
+            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 mr-3 flex-shrink-0" />
+            <div className="text-sm text-red-800">{error}</div>
           </div>
         )}
 
         {success && (
-          <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-2xl flex items-center space-x-2 text-sm">
-            <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
-            <span>Evaluación WISC guardada exitosamente. Redirigiendo...</span>
+          <div className="bg-green-50 border border-green-100 rounded-2xl p-4 flex items-center justify-center">
+            <CheckCircle2 className="w-5 h-5 text-green-600 mr-2" />
+            <span className="text-sm font-medium text-green-800">Evaluación guardada exitosamente</span>
           </div>
         )}
 
@@ -197,9 +265,19 @@ export const WiscScalePage: React.FC = () => {
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
                 WISC-V
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 mt-2">
-                {evalNameParam}
-              </h1>
+              <div className="flex items-center space-x-2 mt-2">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {evalName}
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => setIsEditNameModalOpen(true)}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+                  title="Editar nombre del registro"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="text-right">
               <div className="flex items-center space-x-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
@@ -209,37 +287,69 @@ export const WiscScalePage: React.FC = () => {
             </div>
           </div>
 
-          <TableTests
+          <IndexCompositionTable
             tests={wiscTests}
+            primaryIndexes={wiscPrimaryIndexes}
+            secondaryIndexes={wiscSecondaryIndexes}
             inputs={inputs}
             scalarPoints={scalarPoints}
             onInputChange={handleInputChange}
+            normativeTable={normativeTable}
           />
         </div>
 
-        {Object.keys(indexesSum).length > 0 && (
-          <div className="space-y-6">
-            <IndexesSum
-              indexes={wiscPrimaryIndexes}
-              indexesSum={indexesSum}
-              title="Análisis Primario - Suma Escalar"
-            />
-
-            <TableIndexes
-              indexes={wiscPrimaryIndexes}
-              composes={composes}
-              onRangeChange={setShowRange}
-            />
-
-            {Object.keys(composes).length > 0 && (
-              <CompositeScoresChart
-                dataGraphics={chartGraphicsData}
-                range={showRange}
-                title="Análisis Primario - Perfil de Índices Compuestos"
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-8">
+          {Object.keys(primaryIndexesSum).length > 0 && (
+            <div className="space-y-6">
+              <IndexesSum
+                indexes={wiscPrimaryIndexes}
+                indexesSum={primaryIndexesSum}
+                title="Análisis Primario - Suma Escalar"
               />
-            )}
-          </div>
-        )}
+              <TableIndexes
+                indexes={wiscPrimaryIndexes}
+                composes={primaryComposes}
+                onRangeChange={setShowRange}
+              />
+              {Object.keys(primaryComposes).length > 0 && (
+                <CompositeScoresChart
+                  dataGraphics={primaryChartData}
+                  range={showRange}
+                  title="Perfil de Índices Compuestos"
+                />
+              )}
+            </div>
+          )}
+
+          {Object.keys(secondaryIndexesSum).length > 0 && (
+            <div className="space-y-6">
+              <IndexesSum
+                indexes={wiscSecondaryIndexes}
+                indexesSum={secondaryIndexesSum}
+                title="Análisis Secundario - Suma Escalar"
+              />
+              <TableIndexes
+                indexes={wiscSecondaryIndexes}
+                composes={secondaryComposes}
+                onRangeChange={setShowRangeSec}
+              />
+              {Object.keys(secondaryComposes).length > 0 && (
+                <CompositeScoresChart
+                  dataGraphics={secondaryChartData}
+                  range={showRangeSec}
+                  title="Perfil de Índices Compuestos"
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        <ModalEditRecordName
+          isOpen={isEditNameModalOpen}
+          onClose={() => setIsEditNameModalOpen(false)}
+          currentName={evalName}
+          onSave={setEvalName}
+        />
       </main>
     </div>
   );

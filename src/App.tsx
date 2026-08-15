@@ -9,6 +9,8 @@ import { WaisScalePage } from "./pages/scales/WaisScalePage";
 import { WiscScalePage } from "./pages/scales/WiscScalePage";
 import { WppsiScalePage } from "./pages/scales/WppsiScalePage";
 import { WnvScalePage } from "./pages/scales/WnvScalePage";
+import { EvaluationReportPage } from "./pages/EvaluationReportPage";
+import { VerificationPage } from "./pages/VerificationPage";
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -36,6 +38,10 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Public Verification Portal */}
+          <Route path="/verify" element={<VerificationPage />} />
+          <Route path="/verify/:code" element={<VerificationPage />} />
 
           <Route
             path="/home"
@@ -138,6 +144,24 @@ export function App() {
             element={
               <ProtectedRoute>
                 <WnvScalePage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Evaluation Report / PDF Routes */}
+          <Route
+            path="/patient/:id/evaluation/:evalId/report"
+            element={
+              <ProtectedRoute>
+                <EvaluationReportPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/evaluation/:evalId/report"
+            element={
+              <ProtectedRoute>
+                <EvaluationReportPage />
               </ProtectedRoute>
             }
           />

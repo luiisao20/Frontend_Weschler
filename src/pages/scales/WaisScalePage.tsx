@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Navbar } from '../../components/layout/Navbar';
-import { TableTests } from '../../components/tables/TableTests';
+import { IndexCompositionTable } from '../../components/tables/IndexCompositionTable';
 import { IndexesSum } from '../../components/tables/IndexesSum';
 import { TableIndexes } from '../../components/tables/TableIndexes';
 import { CompositeScoresChart } from '../../components/charts/CompositeScoresChart';
@@ -9,7 +9,8 @@ import { waisTests, waisIndexes } from '../../data/scaleInfo/waisInfo';
 import { findScalars, findComposes, getScales, extractCompositeScore } from '../../utils/psychometrics';
 import { addEvaluation, getPatientById } from '../../services/firestore';
 import { Patient } from '../../types';
-import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Brain, CheckCircle2, AlertCircle, Pencil } from 'lucide-react';
+import { ModalEditRecordName } from '../../components/modals/ModalEditRecordName';
 
 export const WaisScalePage: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -22,6 +23,8 @@ export const WaisScalePage: React.FC = () => {
   const evalDate = searchParams.get('evalDate') || new Date().toISOString().split('T')[0];
   const waisType = searchParams.get('type') || 'wais_c';
   const evalNameParam = searchParams.get('name') || `Evaluación WAIS - ${evalDate}`;
+  const [evalName, setEvalName] = useState(evalNameParam);
+  const [isEditNameModalOpen, setIsEditNameModalOpen] = useState(false);
 
   const yearsNum = parseInt(yearsStr, 10);
   const monthsNum = parseInt(monthsStr, 10);
@@ -81,7 +84,7 @@ export const WaisScalePage: React.FC = () => {
     setInputs(newInputs);
 
     if (normativeTable) {
-      const result = findScalars(newInputs, normativeTable, applicableTests, waisIndexes);
+      const result = findScalars(newInputs, normativeTable, applicableTests, waisIndexes, undefined, undefined, 'wais');
       
       if (result.errors.outOfRange) {
         const testObj = applicableTests.find(t => t.code === result.errors.outOfRange);
@@ -148,12 +151,12 @@ export const WaisScalePage: React.FC = () => {
     setSaving(true);
     setError(null);
     try {
-      await addEvaluation({
+      const newEvalId = await addEvaluation({
         patient: patientId,
         patientId,
         scale: 'wais',
         type: waisType,
-        name: evalNameParam,
+        name: evalName,
         date: evalDate,
         testDay: evalDate,
         years: yearsNum,
@@ -171,8 +174,8 @@ export const WaisScalePage: React.FC = () => {
       });
       setSuccess(true);
       setTimeout(() => {
-        navigate(`/patient/${patientId}`);
-      }, 1500);
+        navigate(`/patient/${patientId}/evaluation/${newEvalId}/report`);
+      }, 1000);
     } catch (err: any) {
       setError(err.message || 'Error guardando evaluación');
     } finally {
@@ -237,9 +240,19 @@ export const WaisScalePage: React.FC = () => {
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
                 {getWaisLabel()}
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 mt-2">
-                {evalNameParam}
-              </h1>
+              <div className="flex items-center space-x-2 mt-2">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {evalName}
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => setIsEditNameModalOpen(true)}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+                  title="Editar nombre del registro"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="text-right">
               <div className="flex items-center space-x-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
@@ -249,11 +262,13 @@ export const WaisScalePage: React.FC = () => {
             </div>
           </div>
 
-          <TableTests
+          <IndexCompositionTable
             tests={applicableTests}
+            primaryIndexes={waisIndexes}
             inputs={inputs}
             scalarPoints={scalarPoints}
             onInputChange={handleInputChange}
+            normativeTable={normativeTable}
           />
         </div>
 
@@ -280,6 +295,13 @@ export const WaisScalePage: React.FC = () => {
             )}
           </div>
         )}
+
+        <ModalEditRecordName
+          isOpen={isEditNameModalOpen}
+          onClose={() => setIsEditNameModalOpen(false)}
+          currentName={evalName}
+          onSave={setEvalName}
+        />
       </main>
     </div>
   );

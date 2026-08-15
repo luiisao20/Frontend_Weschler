@@ -119,6 +119,31 @@ export async function addEvaluation(evaluationData: Omit<Evaluation, 'id'> | (Pa
   return docRef.id;
 }
 
+export async function getEvaluationById(evaluationId: string): Promise<Evaluation | null> {
+  const docSnap = await getDoc(doc(db, 'evaluations', evaluationId));
+  if (!docSnap.exists()) return null;
+  return {
+    ...docSnap.data(),
+    id: docSnap.id
+  } as Evaluation;
+}
+
+export async function updateEvaluation(evaluationId: string, evaluationData: Partial<Evaluation>): Promise<void> {
+  await updateDoc(doc(db, 'evaluations', evaluationId), evaluationData);
+}
+
+export async function getEvaluationByVerificationCode(code: string): Promise<Evaluation | null> {
+  const cleanCode = code.trim().toUpperCase();
+  const q = query(collection(db, 'evaluations'), where('verificationCode', '==', cleanCode));
+  const snap = await getDocs(q);
+  if (snap.empty) return null;
+  const docSnap = snap.docs[0];
+  return {
+    ...docSnap.data(),
+    id: docSnap.id
+  } as Evaluation;
+}
+
 export async function deleteEvaluation(evaluationId: string): Promise<void> {
   await deleteDoc(doc(db, 'evaluations', evaluationId));
 }

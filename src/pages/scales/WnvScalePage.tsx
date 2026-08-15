@@ -6,11 +6,16 @@ import {
   Link,
 } from "react-router-dom";
 import { Navbar } from "../../components/layout/Navbar";
-import { TableTests } from "../../components/tables/TableTests";
-import { IndexesSum } from "../../components/tables/IndexesSum";
+import { IndexCompositionTable } from "../../components/tables/IndexCompositionTable";
 import { TableIndexes } from "../../components/tables/TableIndexes";
-import { wnvTests } from "../../data/scaleInfo/wnvInfo";
-import { findScalars, getScales } from "../../utils/psychometrics";
+import { CompositeScoresChart } from "../../components/charts/CompositeScoresChart";
+import { wnvTests, wnvIndexes } from "../../data/scaleInfo/wnvInfo";
+import {
+  findScalars,
+  getScales,
+  findComposes,
+  extractCompositeScore,
+} from "../../utils/psychometrics";
 import { addEvaluation, getPatientById } from "../../services/firestore";
 import { Patient } from "../../types";
 import {
@@ -19,11 +24,9 @@ import {
   Brain,
   CheckCircle2,
   AlertCircle,
+  Pencil,
 } from "lucide-react";
-
-const wnvIndexes = [
-  { code: "CIT", name: "Escala Total No Verbal", group: null },
-];
+import { ModalEditRecordName } from "../../components/modals/ModalEditRecordName";
 
 export const WnvScalePage: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -37,6 +40,8 @@ export const WnvScalePage: React.FC = () => {
     searchParams.get("evalDate") || new Date().toISOString().split("T")[0];
   const evalNameParam =
     searchParams.get("name") || `Evaluación WNV - ${evalDate}`;
+  const [evalName, setEvalName] = useState(evalNameParam);
+  const [isEditNameModalOpen, setIsEditNameModalOpen] = useState(false);
 
   const yearsNum = parseInt(yearsStr, 10);
   const monthsNum = parseInt(monthsStr, 10);
@@ -48,10 +53,20 @@ export const WnvScalePage: React.FC = () => {
   const [indexesSum, setIndexesSum] = useState<Record<string, number>>({});
   const [composes, setComposes] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState(false);
+  const [showRange, setShowRange] = useState(false);
+
+  const isEarlyAge = yearsNum < 8;
+  const applicableTests = wnvTests.filter((t) => {
+    const mains = isEarlyAge
+      ? wnvIndexes[0].earlyMains
+      : wnvIndexes[0].lastMains;
+    return mains?.includes(t.code);
+  });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
   const [normativeTable, setNormativeTable] = useState<any>(null);
+  const [primaryIndexTables, setPrimaryIndexTables] = useState<any[]>([]);
 
   useEffect(() => {
     if (patientId) {
@@ -65,12 +80,24 @@ export const WnvScalePage: React.FC = () => {
       months: parseInt(monthsStr, 10),
     };
     getScales(ageObj, "wnv")
-      .then((res) => setNormativeTable(res.table))
+      .then((res) => {
+        setNormativeTable(res.table);
+        if (res.indexes?.primary) {
+          setPrimaryIndexTables(res.indexes.primary);
+        }
+      })
       .catch((err) => {
         console.error("Error loading WNV table:", err);
         setError(err instanceof Error ? err.message : String(err));
       });
   }, [yearsStr, monthsStr]);
+
+  useEffect(() => {
+    if (Object.keys(indexesSum).length > 0 && primaryIndexTables.length > 0) {
+      const comp = findComposes(indexesSum, primaryIndexTables, isEarlyAge);
+      setComposes(comp);
+    }
+  }, [indexesSum, primaryIndexTables, isEarlyAge]);
 
   const handleInputChange = (code: string, val: string) => {
     const newInputs = { ...inputs, [code]: val };
@@ -80,13 +107,59 @@ export const WnvScalePage: React.FC = () => {
       const result = findScalars(
         newInputs,
         normativeTable,
-        wnvTests,
+        applicableTests,
         wnvIndexes,
+        undefined,
+        isEarlyAge,
+        'wnv'
       );
       setScalarPoints(result.points);
       setIndexesSum(result.sum);
     }
   };
+
+  const parseIntervalLimits = (item: any, confidence: "90" | "95") => {
+    if (typeof item !== "object" || item === null)
+      return { lower: 0, upper: 0 };
+    const key = confidence === "90" ? "90%" : "95%";
+    const intervalStr =
+      item[key] || item[confidence === "90" ? "ic90" : "ic95"];
+    if (intervalStr && String(intervalStr).includes("-")) {
+      const parts = String(intervalStr).split("-");
+      const lower = parseInt(parts[0], 10);
+      const upper = parseInt(parts[1], 10);
+      return {
+        lower: isNaN(lower) ? 0 : lower,
+        upper: isNaN(upper) ? 0 : upper,
+      };
+    }
+    return { lower: 0, upper: 0 };
+  };
+
+  const chartGraphicsData = (() => {
+    const validItems = wnvIndexes
+      .map((i) => {
+        const val = extractCompositeScore(composes[i.code], i.code);
+        const limits = parseIntervalLimits(
+          composes[i.code],
+          showRange ? "95" : "90",
+        );
+        return {
+          code: i.code,
+          val: val > 0 ? val : null,
+          upper: limits.upper > 0 ? limits.upper : null,
+          lower: limits.lower > 0 ? limits.lower : null,
+        };
+      })
+      .filter((item) => item.val !== null);
+
+    return {
+      xlabel: validItems.map((i) => i.code),
+      values: validItems.map((i) => i.val as number),
+      upperLimits: validItems.map((i) => i.upper as number),
+      lowerLimits: validItems.map((i) => i.lower as number),
+    };
+  })();
 
   const handleSave = async () => {
     if (!patientId) return;
@@ -94,12 +167,12 @@ export const WnvScalePage: React.FC = () => {
     setSaving(true);
     setError(null);
     try {
-      await addEvaluation({
+      const newEvalId = await addEvaluation({
         patient: patientId,
         patientId,
         scale: "wnv",
         type: "wnv",
-        name: evalNameParam,
+        name: evalName,
         date: evalDate,
         testDay: evalDate,
         years: yearsNum,
@@ -118,8 +191,8 @@ export const WnvScalePage: React.FC = () => {
       });
       setSuccess(true);
       setTimeout(() => {
-        navigate(`/patient/${patientId}`);
-      }, 1500);
+        navigate(`/patient/${patientId}/evaluation/${newEvalId}/report`);
+      }, 1000);
     } catch (err: any) {
       setError(err.message || "Error guardando evaluación");
     } finally {
@@ -179,9 +252,19 @@ export const WnvScalePage: React.FC = () => {
               <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
                 WNV
               </span>
-              <h1 className="text-2xl font-bold text-gray-900 mt-2">
-                Escala No Verbal de Aptitud
-              </h1>
+              <div className="flex items-center space-x-2 mt-2">
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {evalName}
+                </h1>
+                <button
+                  type="button"
+                  onClick={() => setIsEditNameModalOpen(true)}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+                  title="Editar nombre del registro"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             <div className="text-right">
               <div className="flex items-center space-x-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
@@ -193,29 +276,47 @@ export const WnvScalePage: React.FC = () => {
             </div>
           </div>
 
-          <TableTests
-            tests={wnvTests}
-            inputs={inputs}
-            scalarPoints={scalarPoints}
-            onInputChange={handleInputChange}
-          />
-        </div>
-
-        {Object.keys(indexesSum).length > 0 && (
-          <div className="space-y-6">
-            <IndexesSum
-              indexes={wnvIndexes}
-              indexesSum={indexesSum}
-              title="Suma Escalar"
-            />
-
-            <TableIndexes
-              indexes={wnvIndexes}
-              composes={composes}
-              showWNV={true}
+          <div className="max-w-2xl mx-auto">
+            <IndexCompositionTable
+              tests={applicableTests}
+              primaryIndexes={wnvIndexes}
+              inputs={inputs}
+              scalarPoints={scalarPoints}
+              onInputChange={handleInputChange}
+              normativeTable={normativeTable}
+              isEarlyAge={isEarlyAge}
             />
           </div>
-        )}
+        </div>
+
+        <div className="max-w-2xl mx-auto">
+          {Object.keys(indexesSum).length > 0 && (
+            <div className="space-y-6">
+              <TableIndexes
+                indexes={wnvIndexes}
+                composes={composes}
+                showWNV={true}
+                indexesSum={indexesSum}
+                onRangeChange={setShowRange}
+              />
+
+              {Object.keys(composes).length > 0 && (
+                <CompositeScoresChart
+                  dataGraphics={chartGraphicsData}
+                  range={showRange}
+                  title="Puntuación Escala Total"
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        <ModalEditRecordName
+          isOpen={isEditNameModalOpen}
+          onClose={() => setIsEditNameModalOpen(false)}
+          currentName={evalName}
+          onSave={setEvalName}
+        />
       </main>
     </div>
   );
