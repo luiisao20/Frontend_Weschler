@@ -24,6 +24,6 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           push: true
-          tags: /
+          tags: |
             ${{ secrets.DOCKER_USERNAME }}/frontend_weschler:latest
             ${{ secrets.DOCKER_USERNAME }}/frontend_weschler:${{ github.ref_name }}
