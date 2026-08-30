@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { X, Calendar, Brain, BarChart2, FileText } from 'lucide-react';
 import { CompositeScoresChart } from '../charts/CompositeScoresChart';
 import { formatDate } from '../../utils/formatDate';
-
+import { waisIndexes } from '../../data/scaleInfo/waisInfo';
+import { wiscPrimaryIndexes, wiscSecondaryIndexes } from '../../data/scaleInfo/wiscInfo';
+import { wppsiPrimaryIndexes, wppsiSecondaryIndexes } from '../../data/scaleInfo/wppsiInfo';
+import { wnvIndexes } from '../../data/scaleInfo/wnvInfo';
 interface ModalEvaluationDetailProps {
   isOpen: boolean;
   onClose: () => void;
@@ -43,46 +46,19 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
   let secondaryDefs: { code: string; name: string }[] = [];
 
   if (scaleType.includes('wisc')) {
-    primaryDefs = [
-      { code: 'ICV', name: 'Índice de comprensión verbal' },
-      { code: 'IVE', name: 'Índice visoespacial' },
-      { code: 'IRF', name: 'Índice de razonamiento fluido' },
-      { code: 'IMT', name: 'Índice de memoria de trabajo' },
-      { code: 'IVP', name: 'Índice de velocidad de procesamiento' },
-      { code: 'CIT', name: 'Escala total' }
-    ];
-    secondaryDefs = [
-      { code: 'ICG', name: 'Índice de capacidad general' },
-      { code: 'ICC', name: 'Índice de competencia cognitiva' }
-    ];
+    primaryDefs = wiscPrimaryIndexes;
+    secondaryDefs = wiscSecondaryIndexes;
   } else if (scaleType.includes('wppsi')) {
-    primaryDefs = [
-      { code: 'ICV', name: 'Índice de comprensión verbal' },
-      { code: 'IVE', name: 'Índice visoespacial' },
-      { code: 'IRF', name: 'Índice de razonamiento fluido' },
-      { code: 'IMT', name: 'Índice de memoria de trabajo' },
-      { code: 'IVP', name: 'Índice de velocidad de procesamiento' },
-      { code: 'CIT', name: 'Coeficiente intelectual total' }
-    ];
-    secondaryDefs = [
-      { code: 'INV', name: 'Índice no verbal' },
-      { code: 'ICG', name: 'Índice de capacidad general' },
-      { code: 'ICC', name: 'Índice de competencia cognitiva' }
-    ];
+    const chrAge = years + months / 12;
+    const isEarlyAge = chrAge > 0 && chrAge < 4;
+    primaryDefs = isEarlyAge ? wppsiPrimaryIndexes.filter(i => !i.restriction) : wppsiPrimaryIndexes;
+    secondaryDefs = isEarlyAge ? wppsiSecondaryIndexes.filter(i => !i.restriction) : wppsiSecondaryIndexes;
   } else if (scaleType.includes('wnv')) {
-    primaryDefs = [
-      { code: 'CIT', name: 'Escala Total (WNV)' }
-    ];
+    primaryDefs = wnvIndexes;
     secondaryDefs = [];
   } else {
     // WAIS (Chilena / Española / Mexicana)
-    primaryDefs = [
-      { code: 'ICV', name: 'Índice de comprensión verbal' },
-      { code: 'IRP', name: 'Índice de razonamiento perceptivo' },
-      { code: 'IMT', name: 'Índice de memoria de trabajo' },
-      { code: 'IVP', name: 'Índice de velocidad de procesamiento' },
-      { code: 'CIT', name: 'Coeficiente intelectual total' }
-    ];
+    primaryDefs = waisIndexes;
     secondaryDefs = [];
   }
 
@@ -99,6 +75,8 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
     if (!composesMap) return null;
     if (composesMap[idxCode]) return composesMap[idxCode];
     if (composesMap.CIT && idxCode === 'CIT') return composesMap.CIT;
+    const key = Object.keys(composesMap).find(k => k.toUpperCase().startsWith(idxCode.toUpperCase()));
+    if (key) return composesMap[key];
     return null;
   };
 
@@ -106,6 +84,8 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
     if (!sumMap) return '-';
     if (sumMap[idxCode] !== undefined && sumMap[idxCode] !== null) return String(sumMap[idxCode]);
     if (sumMap.Sum !== undefined && sumMap.Sum !== null && idxCode === 'CIT') return String(sumMap.Sum);
+    const key = Object.keys(sumMap).find(k => k.toUpperCase().startsWith(idxCode.toUpperCase()));
+    if (key && sumMap[key] !== undefined && sumMap[key] !== null) return String(sumMap[key]);
     return '-';
   };
 
@@ -113,18 +93,38 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
     if (!item) return '-';
     if (typeof item === 'number' || typeof item === 'string') return String(item);
     if (typeof item === 'object') {
-      if (item[idxCode] !== undefined && item[idxCode] !== null) return item[idxCode];
-      if (item.composite !== undefined && item.composite !== null) return item.composite;
-      if (item.score !== undefined && item.score !== null) return item.score;
+      if (item[idxCode] !== undefined && item[idxCode] !== null) return String(item[idxCode]);
+      if (item.composite !== undefined && item.composite !== null) return String(item.composite);
+      if (item.score !== undefined && item.score !== null) return String(item.score);
+      if (item.value !== undefined && item.value !== null) return String(item.value);
+
+      const codeKey = Object.keys(item).find((k) => k.toUpperCase().startsWith(idxCode.toUpperCase()));
+      if (codeKey && item[codeKey] !== undefined && item[codeKey] !== null) {
+        return String(item[codeKey]);
+      }
+
+      const ignoreKeys = ['percentil', 'percentile', '90%', '95%', 'ic90', 'ic95', 'rango'];
+      const numericKey = Object.keys(item).find((k) => {
+        const lowerK = k.toLowerCase();
+        if (ignoreKeys.some((ik) => lowerK.includes(ik))) return false;
+        const val = item[k];
+        return typeof val === 'number' || (typeof val === 'string' && !isNaN(Number(val)) && String(val).trim() !== '');
+      });
+
+      if (numericKey && item[numericKey] !== undefined && item[numericKey] !== null) {
+        return String(item[numericKey]);
+      }
     }
     return '-';
   };
 
   const getPercentile = (item: any) => {
     if (!item || typeof item !== 'object') return '-';
-    if (item.Percentil !== undefined && item.Percentil !== null) return item.Percentil;
-    if (item.PERCENTIL !== undefined && item.PERCENTIL !== null) return item.PERCENTIL;
-    if (item.percentile !== undefined && item.percentile !== null) return item.percentile;
+    const keys = Object.keys(item);
+    const percentileKey = keys.find((k) => k.toLowerCase().includes('percentil') || k.toLowerCase().includes('percentile'));
+    if (percentileKey && item[percentileKey] !== undefined && item[percentileKey] !== null) {
+      return String(item[percentileKey]);
+    }
     return '-';
   };
 

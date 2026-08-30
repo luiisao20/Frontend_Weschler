@@ -28,8 +28,11 @@ import {
   Loader2,
   ShieldCheck,
   Lock,
-  ExternalLink
+  ExternalLink,
+  X
 } from 'lucide-react';
+import axios from 'axios';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const EvaluationReportPage: React.FC = () => {
   const { id: patientIdParam, evalId: evalIdParam } = useParams<{ id?: string; evalId?: string }>();
@@ -53,6 +56,10 @@ export const EvaluationReportPage: React.FC = () => {
   const [structuration, setStructuration] = useState<string>('');
   const [evaluatorName, setEvaluatorName] = useState<string>('');
   const [confidenceInterval, setConfidenceInterval] = useState<'90' | '95'>('90');
+
+  // AI Modal State
+  const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
+  const [aiGeneratedText, setAiGeneratedText] = useState<string>('');
 
   // Verification metadata
   const [verificationCode, setVerificationCode] = useState<string>('');
@@ -100,11 +107,7 @@ export const EvaluationReportPage: React.FC = () => {
 
         setEvalDate(evalData.date || evalData.testDay || new Date().toISOString().split('T')[0]);
         setDiagnosis(evalData.diagnosis || evalData.dx || '');
-        setStructuration(
-          evalData.structuration ||
-          evalData.observations ||
-          'El evaluado completó la batería de subpruebas de acuerdo con los estándares psicométricos vigentes. Los resultados reflejan un perfil de habilidades cognitivas con áreas de fortaleza y oportunidades de desarrollo según las normas de estandarización.'
-        );
+        setStructuration(evalData.structuration || evalData.observations || '');
         setEvaluatorName(evalData.evaluator || user?.displayName || user?.email || 'Especialista en Evaluación Psicológica');
 
         // Manage Cryptographic Verification Code & Hash (stored anonymously in DB)
@@ -146,13 +149,13 @@ export const EvaluationReportPage: React.FC = () => {
     if (scoreVal === undefined || scoreVal === null || scoreVal === '' || scoreVal === '-') return '-';
     const num = typeof scoreVal === 'number' ? scoreVal : parseInt(String(scoreVal), 10);
     if (isNaN(num) || num <= 0) return '-';
-    if (num >= 130) return 'Muy Superior';
-    if (num >= 120) return 'Superior';
-    if (num >= 110) return 'Promedio Alto';
-    if (num >= 90) return 'Promedio';
-    if (num >= 80) return 'Promedio Bajo';
+    if (num >= 110) return 'Alto o superior';
+    if (num >= 90) return 'Normal promedio';
+    if (num >= 80) return 'Normal bajo';
     if (num >= 70) return 'Limítrofe';
-    return 'Muy Bajo';
+    if (num >= 50) return 'Deficiencia cognitiva leve';
+    if (num >= 35) return 'Deficiencia cognitiva moderada';
+    return 'Deficiencia cognitiva grave';
   };
 
   const getCompositeScoreValue = (comp: any, code: string): string => {
@@ -260,8 +263,12 @@ export const EvaluationReportPage: React.FC = () => {
       primaryDefs = wiscPrimaryIndexes;
       secondaryDefs = wiscSecondaryIndexes;
     } else if (scale.includes('wppsi')) {
-      primaryDefs = wppsiPrimaryIndexes;
-      secondaryDefs = wppsiSecondaryIndexes;
+      const years = evaluation?.age?.years || parseInt(String(ageDisplay).split(' ')[0]) || 0;
+      const months = evaluation?.age?.months || 0;
+      const chrAge = years + months / 12;
+      const isEarlyAge = chrAge > 0 && chrAge < 4;
+      primaryDefs = isEarlyAge ? wppsiPrimaryIndexes.filter(i => !i.restriction) : wppsiPrimaryIndexes;
+      secondaryDefs = isEarlyAge ? wppsiSecondaryIndexes.filter(i => !i.restriction) : wppsiSecondaryIndexes;
     } else if (scale.includes('wnv')) {
       primaryDefs = wnvIndexes;
       secondaryDefs = [];
@@ -276,7 +283,14 @@ export const EvaluationReportPage: React.FC = () => {
     const primaryComposes = data.primaryComposes || data.composes || evaluation.indexes || {};
     const secondaryComposes = data.secondaryComposes || {};
 
-    const parseItem = (idx: { code: string; name: string }, comp: any, sumVal: any) => {
+    const parseItem = (idx: { code: string; name: string }, compMap: any, sumMap: any) => {
+      // Find the actual key in the map (e.g. "ICV" or "ICV 2-6 7-7")
+      const compKey = compMap ? Object.keys(compMap).find(k => k.toUpperCase().startsWith(idx.code.toUpperCase())) : null;
+      const comp = compKey ? compMap[compKey] : null;
+
+      const sumKey = sumMap ? Object.keys(sumMap).find(k => k.toUpperCase().startsWith(idx.code.toUpperCase())) : null;
+      const sumVal = sumKey ? sumMap[sumKey] : '-';
+
       const compScore = getCompositeScoreValue(comp, idx.code);
       const percentile = getPercentileValue(comp);
       const ci = getConfidenceIntervalValue(comp, confidenceInterval === '95');
@@ -294,11 +308,11 @@ export const EvaluationReportPage: React.FC = () => {
     };
 
     const primaryList = primaryDefs
-      .map((idx) => parseItem(idx, primaryComposes[idx.code], primarySum[idx.code]))
+      .map((idx) => parseItem(idx, primaryComposes, primarySum))
       .filter((item) => item.composite !== '-' || item.sum !== '-');
 
     const secondaryList = secondaryDefs
-      .map((idx) => parseItem(idx, secondaryComposes[idx.code], secondarySum[idx.code]))
+      .map((idx) => parseItem(idx, secondaryComposes, secondarySum))
       .filter((item) => item.composite !== '-' || item.sum !== '-');
 
     return { primaryList, secondaryList };
@@ -335,6 +349,99 @@ export const EvaluationReportPage: React.FC = () => {
 
   const primaryChartData = getChartData(primaryList);
   const secondaryChartData = getChartData(secondaryList);
+
+  const fetchAIAnalysis = async () => {
+    setAiGeneratedText('');
+
+    const resultados: Record<string, any> = {};
+    
+    primaryList.forEach(curr => {
+      if (curr.composite !== '-' && curr.composite !== undefined) {
+        resultados[`${curr.name} (${curr.code})`] = {
+          puntaje: Number(curr.composite),
+          intervalo: curr.ci !== '-' ? curr.ci : null
+        };
+      }
+    });
+
+    secondaryList.forEach(curr => {
+      if (curr.composite !== '-' && curr.composite !== undefined) {
+        resultados[`${curr.name} (${curr.code})`] = {
+          puntaje: Number(curr.composite),
+          intervalo: curr.ci !== '-' ? curr.ci : null
+        };
+      }
+    });
+
+    const datosPaciente = {
+      paciente_edad: evaluation?.age?.years || parseInt(String(ageDisplay).split(' ')[0]) || 0,
+      prueba: getScaleBadgeLabel(),
+      nivel_confianza: `${confidenceInterval}%`,
+      resultados
+    };
+
+    const respuesta = await axios.post("http://localhost:8000/chat",
+      { mensaje: datosPaciente },
+      {
+        responseType: 'stream',
+        adapter: 'fetch'
+      }
+    );
+
+    const stream = respuesta.data;
+    if (!stream || !stream.getReader) {
+        const fallbackText = respuesta.data?.texto || JSON.stringify(respuesta.data);
+        setAiGeneratedText(fallbackText);
+        return fallbackText;
+    }
+
+    const reader = stream.getReader();
+    const decoder = new TextDecoder("utf-8");
+
+    let textoCompleto = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      const lineas = chunk.split('\n');
+
+      for (let linea of lineas) {
+        if (linea.startsWith("data: ")) {
+          try {
+            const data = JSON.parse(linea.substring(6));
+            if (data.texto) {
+              textoCompleto += data.texto;
+              setAiGeneratedText(textoCompleto);
+            }
+          } catch (e) { }
+        }
+      }
+    }
+    
+    return textoCompleto;
+  };
+
+  const queryClient = useQueryClient();
+
+  const { data: aiQueryData, isFetching: isGeneratingAI, refetch: refetchAI } = useQuery({
+    queryKey: ['aiAnalysis', evaluationId],
+    queryFn: fetchAIAnalysis,
+    enabled: isAiModalOpen,
+    staleTime: Infinity,
+    retry: false
+  });
+
+  useEffect(() => {
+    if (isAiModalOpen && aiQueryData && !isGeneratingAI) {
+      setAiGeneratedText(aiQueryData);
+    }
+  }, [isAiModalOpen, aiQueryData, isGeneratingAI]);
+
+  const handleGenerateAI = () => {
+    setIsAiModalOpen(true);
+  };
 
   const handleDownloadPdf = async () => {
     if (!reportContainerRef.current) return;
@@ -614,10 +721,20 @@ export const EvaluationReportPage: React.FC = () => {
 
               {/* Structuration */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5 flex items-center">
-                  <BookOpen className="w-3.5 h-3.5 mr-1 text-teal-600" />
-                  Estructuración / Conclusiones
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 flex items-center">
+                    <BookOpen className="w-3.5 h-3.5 mr-1 text-teal-600" />
+                    Estructuración / Conclusiones
+                  </label>
+                  <button
+                    onClick={handleGenerateAI}
+                    disabled={isGeneratingAI}
+                    className="inline-flex items-center px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-[10px] font-bold rounded-lg border border-indigo-200 transition cursor-pointer"
+                  >
+                    {isGeneratingAI ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Brain className="w-3 h-3 mr-1" />}
+                    Generar Análisis con IA
+                  </button>
+                </div>
                 <textarea
                   rows={4}
                   value={structuration}
@@ -960,6 +1077,68 @@ export const EvaluationReportPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* AI Modal */}
+        {isAiModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-xs p-4">
+            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-indigo-700 font-bold">
+                  <Brain className="w-5 h-5" />
+                  <span>Análisis Generado por IA</span>
+                </div>
+                <button
+                  onClick={() => setIsAiModalOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 flex-1 overflow-y-auto">
+                <p className="text-xs text-gray-500 mb-3">
+                  Revisa y edita el texto generado antes de aplicarlo al informe final.
+                </p>
+                <textarea
+                  value={aiGeneratedText}
+                  onChange={(e) => setAiGeneratedText(e.target.value)}
+                  className="w-full h-64 p-4 border border-gray-200 rounded-xl font-medium text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition text-sm leading-relaxed"
+                  placeholder={isGeneratingAI ? "Generando análisis espere un momento..." : "El análisis aparecerá aquí..."}
+                />
+              </div>
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                <button
+                  onClick={() => {
+                    queryClient.invalidateQueries({ queryKey: ['aiAnalysis', evaluationId] });
+                    refetchAI();
+                  }}
+                  disabled={isGeneratingAI}
+                  className="px-4 py-2 rounded-xl text-indigo-700 bg-indigo-100 hover:bg-indigo-200 font-bold text-sm transition flex items-center cursor-pointer disabled:opacity-50"
+                >
+                  {isGeneratingAI ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Brain className="w-4 h-4 mr-1" />}
+                  Regenerar
+                </button>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => setIsAiModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-gray-600 hover:text-gray-900 font-bold text-sm transition cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStructuration(aiGeneratedText);
+                      setIsAiModalOpen(false);
+                    }}
+                    disabled={!aiGeneratedText}
+                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold text-sm shadow-sm transition cursor-pointer"
+                  >
+                    Aplicar al Informe
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

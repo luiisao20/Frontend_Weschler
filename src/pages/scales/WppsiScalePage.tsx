@@ -220,23 +220,16 @@ export const WppsiScalePage: React.FC = () => {
     setError(null);
     try {
       const newEvalId = await addEvaluation({
-        patient: patientId,
         patientId,
         scale: 'wppsi',
         type: 'wppsi',
         name: evalName,
         date: evalDate,
         testDay: evalDate,
-        years: yearsNum,
-        months: monthsNum,
-        days: daysNum,
         age: { years: yearsNum, months: monthsNum, days: daysNum },
         scores: inputs,
         rawScores: inputs,
         scalarScores: scalarPoints,
-        indexesSum: primaryIndexesSum,
-        indexes: primaryComposes,
-        secondaryIndexes: secondaryComposes,
         data: {
           primarySum: primaryIndexesSum,
           primaryComposes: primaryComposes,

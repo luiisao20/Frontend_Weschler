@@ -168,25 +168,19 @@ export const WnvScalePage: React.FC = () => {
     setError(null);
     try {
       const newEvalId = await addEvaluation({
-        patient: patientId,
         patientId,
         scale: "wnv",
         type: "wnv",
         name: evalName,
         date: evalDate,
         testDay: evalDate,
-        years: yearsNum,
-        months: monthsNum,
-        days: daysNum,
         age: { years: yearsNum, months: monthsNum, days: daysNum },
         scores: inputs,
         rawScores: inputs,
         scalarScores: scalarPoints,
-        indexesSum: indexesSum,
-        indexes: composes,
         data: {
-          sum: indexesSum,
-          composes: composes,
+          primarySum: indexesSum,
+          primaryComposes: composes,
         },
       });
       setSuccess(true);
