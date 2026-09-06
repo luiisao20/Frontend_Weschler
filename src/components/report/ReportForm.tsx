@@ -17,6 +17,7 @@ export interface ReportFormValues {
   patientName: string;
   documentId: string;
   ageDisplay: string;
+  gender: string;
   evalDate: string;
   diagnosis: string;
   structuration: string;
@@ -163,6 +164,39 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           ) : null}
         </div>
 
+        {/* Sexo (Para IA, no visible en PDF) */}
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5 flex items-center justify-between">
+            <span className="flex items-center">
+              <User className="w-3.5 h-3.5 mr-1 text-teal-600" />
+              Sexo
+            </span>
+            <span className="text-[10px] text-teal-700 font-semibold bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
+              Requerido para IA
+            </span>
+          </label>
+          <select
+            name="gender"
+            value={values.gender}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`w-full px-3.5 py-2.5 bg-gray-50 border rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition text-xs ${
+              touched.gender && errors.gender
+                ? "border-red-300 ring-1 ring-red-300"
+                : "border-gray-200"
+            }`}
+          >
+            <option value="">Seleccione el sexo...</option>
+            <option value="Masculino">Masculino</option>
+            <option value="Femenino">Femenino</option>
+          </select>
+          {touched.gender && errors.gender ? (
+            <div className="text-red-500 text-[10px] mt-1 font-medium">
+              {errors.gender}
+            </div>
+          ) : null}
+        </div>
+
         {/* Date */}
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5 flex items-center">
@@ -210,7 +244,16 @@ export const ReportForm: React.FC<ReportFormProps> = ({
             </label>
             <button
               type="button"
-              onClick={onOpenAiModal}
+              onClick={() => {
+                if (!values.gender) {
+                  formik.setFieldTouched("gender", true);
+                  alert(
+                    "Por favor selecciona el sexo del paciente antes de generar el análisis con IA.",
+                  );
+                  return;
+                }
+                onOpenAiModal();
+              }}
               disabled={isGeneratingAI}
               className="inline-flex items-center px-2.5 py-1 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[10px] font-bold rounded-lg border border-teal-200 transition cursor-pointer disabled:opacity-50"
             >

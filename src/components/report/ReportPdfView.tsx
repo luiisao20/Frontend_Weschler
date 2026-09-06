@@ -78,15 +78,10 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
                   {scaleBadgeLabel}
                 </span>
                 <h1 className="text-xl sm:text-2xl font-black text-gray-900 mt-2 tracking-tight">
-                  INFORME DE EVALUACIÓN PSICOMÉTRICA
+                  INFORME DE EVALUACIÓN DE FUNCIONAMIENTO COGNITIVO
                 </h1>
-                <p className="text-[11px] font-semibold text-gray-500 mt-0.5">
-                  {evaluation?.name ||
-                    "Evaluación de Inteligencia y Habilidades Cognitivas"}
-                </p>
               </div>
               <div className="text-right text-[10px] text-gray-500 space-y-1">
-                <p className="font-bold text-teal-900">Fecha: {evalDate}</p>
                 <div className="bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg font-mono text-[10px] font-bold text-teal-900">
                   Cód: {verificationCode}
                 </div>
@@ -102,7 +97,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-xs">
                 <div>
                   <span className="text-[10px] font-bold uppercase text-teal-700 block">
-                    Paciente
+                    Nombres y apellidos
                   </span>
                   <span className="font-bold text-gray-900">
                     {patientName || "-"}
@@ -126,7 +121,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
                 </div>
                 <div>
                   <span className="text-[10px] font-bold uppercase text-teal-700 block">
-                    Fecha Aplicación
+                    Fecha de Aplicación
                   </span>
                   <span className="font-bold text-gray-900">
                     {evalDate || "-"}
@@ -220,7 +215,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
               <div className="pdf-block bg-white">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2 flex items-center">
                   <FileText className="w-3.5 h-3.5 mr-1.5 text-teal-700" />
-                  Análisis Primario: Puntuaciones Compuestas e Índices
+                  Análisis Cuantitativo{!['wnv', 'wais'].includes(evaluation?.scale ?? '') && ': Índices Primarios'}
                 </h3>
                 <div className="rounded-xl border border-teal-200 overflow-hidden break-inside-avoid avoid-page-break">
                   <table className="w-full text-left text-xs border-collapse">
@@ -286,7 +281,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
                   upperLimits={primaryChartData.upperLimits}
                   lowerLimits={primaryChartData.lowerLimits}
                   confidence={confidenceInterval}
-                  title="Perfil Gráfico de Índices Compuestos (Análisis Primario)"
+                  title={`Perfil Gráfico${!['wnv', 'wais'].includes(evaluation?.scale ?? '') ? ' de Índices Primarios' : ''}`}
                 />
               </div>
             )}
@@ -296,7 +291,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
               <div className="space-y-4 pt-2 break-inside-avoid avoid-page-break pdf-block bg-white">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2 flex items-center">
                   <FileText className="w-3.5 h-3.5 mr-1.5 text-teal-700" />
-                  Análisis Secundario: Índices Específicos
+                  Análisis Cuantitativo: Índices Secundarios
                 </h3>
                 <div className="rounded-xl border border-teal-200 overflow-hidden break-inside-avoid avoid-page-break">
                   <table className="w-full text-left text-xs border-collapse">
@@ -367,7 +362,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
             {/* Section 6: Estructuración y Conclusiones */}
             <div className="rounded-xl border-l-4 border-teal-700 p-4 bg-teal-50/40 pdf-block break-inside-avoid avoid-page-break">
               <h4 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2">
-                Estructuración del Perfil Cognitivo y Observaciones
+                Análisis cualitativo del perfil cognitivo y observaciones
               </h4>
               <p className="text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">
                 {structuration || "No se han registrado observaciones adicionales."}

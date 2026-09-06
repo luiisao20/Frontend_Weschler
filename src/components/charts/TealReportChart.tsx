@@ -80,7 +80,7 @@ export const TealReportChart: React.FC<TealReportChartProps> = ({
       <div className="w-full flex justify-center overflow-hidden">
         <svg
           viewBox={`0 0 ${width} ${height}`}
-          className="w-full h-auto max-w-[680px]"
+          className="w-full h-auto max-w-170"
           style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}
         >
           {/* Shaded average zone (90 - 110) */}
@@ -154,13 +154,25 @@ export const TealReportChart: React.FC<TealReportChartProps> = ({
           {/* Upper Limits Line (Dashed Teal) */}
           {hasLimits && (
             <>
-              <path
-                d={makePath(upperPoints)}
-                fill="none"
-                stroke="#0d9488"
-                strokeWidth="2"
-                strokeDasharray="4 3"
-              />
+              {categories.length === 1 ? (
+                <line
+                  x1={padding.left}
+                  y1={upperPoints[0].y}
+                  x2={width - padding.right}
+                  y2={upperPoints[0].y}
+                  stroke="#0d9488"
+                  strokeWidth="2"
+                  strokeDasharray="4 3"
+                />
+              ) : (
+                <path
+                  d={makePath(upperPoints)}
+                  fill="none"
+                  stroke="#0d9488"
+                  strokeWidth="2"
+                  strokeDasharray="4 3"
+                />
+              )}
               {upperPoints.map((p, idx) => (
                 <circle
                   key={`u-${idx}`}
@@ -176,13 +188,25 @@ export const TealReportChart: React.FC<TealReportChartProps> = ({
           {/* Lower Limits Line (Dashed Light Teal) */}
           {hasLimits && (
             <>
-              <path
-                d={makePath(lowerPoints)}
-                fill="none"
-                stroke="#2dd4bf"
-                strokeWidth="2"
-                strokeDasharray="4 3"
-              />
+              {categories.length === 1 ? (
+                <line
+                  x1={padding.left}
+                  y1={lowerPoints[0].y}
+                  x2={width - padding.right}
+                  y2={lowerPoints[0].y}
+                  stroke="#2dd4bf"
+                  strokeWidth="2"
+                  strokeDasharray="4 3"
+                />
+              ) : (
+                <path
+                  d={makePath(lowerPoints)}
+                  fill="none"
+                  stroke="#2dd4bf"
+                  strokeWidth="2"
+                  strokeDasharray="4 3"
+                />
+              )}
               {lowerPoints.map((p, idx) => (
                 <circle
                   key={`l-${idx}`}

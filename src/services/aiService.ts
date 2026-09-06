@@ -12,6 +12,7 @@ export interface IndexItemSummary {
 export interface AiAnalysisParams {
   provider?: AIProvider;
   patientAge: number;
+  patientGender?: string;
   scaleBadgeLabel: string;
   confidenceInterval: "90" | "95";
   primaryList: IndexItemSummary[];
@@ -22,6 +23,7 @@ export interface AiAnalysisParams {
 export const generateAiAnalysis = async ({
   provider = "openai",
   patientAge,
+  patientGender,
   scaleBadgeLabel,
   confidenceInterval,
   primaryList,
@@ -50,6 +52,7 @@ export const generateAiAnalysis = async ({
 
   const datosPaciente = {
     paciente_edad: patientAge,
+    sexo: patientGender || "",
     prueba: scaleBadgeLabel,
     nivel_confianza: `${confidenceInterval}%`,
     resultados,

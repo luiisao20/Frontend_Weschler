@@ -61,6 +61,7 @@ export const EvaluationReportPage: React.FC = () => {
       patientName: "",
       documentId: "",
       ageDisplay: "",
+      gender: "",
       evalDate: "",
       diagnosis: "",
       structuration: "",
@@ -78,6 +79,7 @@ export const EvaluationReportPage: React.FC = () => {
         .matches(/^\d{10}$/, "Debe tener 10 dígitos")
         .required("Requerido"),
       ageDisplay: Yup.string().required("Requerido"),
+      gender: Yup.string().required("Requerido para la IA"),
       evalDate: Yup.string().required("Requerido"),
       diagnosis: Yup.string(),
       structuration: Yup.string(),
@@ -156,6 +158,7 @@ export const EvaluationReportPage: React.FC = () => {
           patientName: pName,
           documentId: docNum,
           ageDisplay: cAgeDisplay,
+          gender: patientData?.gender || "",
           evalDate: cEvalDate,
           diagnosis: cDiagnosis,
           structuration: cStructuration,
@@ -218,6 +221,7 @@ export const EvaluationReportPage: React.FC = () => {
     return generateAiAnalysis({
       provider,
       patientAge,
+      patientGender: formik.values.gender,
       scaleBadgeLabel,
       confidenceInterval: formik.values.confidenceInterval,
       primaryList,

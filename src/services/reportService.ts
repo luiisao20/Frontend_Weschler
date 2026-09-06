@@ -137,6 +137,7 @@ export const getConfidenceIntervalValue = (comp: any, is95: boolean): string => 
   if (!comp || typeof comp !== "object") return "-";
   const target = is95 ? "95%" : "90%";
   const altTarget = is95 ? "ic95" : "ic90";
+  const numTarget = is95 ? "95" : "90";
 
   if (comp[target] !== undefined && comp[target] !== null)
     return String(comp[target]);
@@ -146,14 +147,22 @@ export const getConfidenceIntervalValue = (comp: any, is95: boolean): string => 
       : String(comp[altTarget]);
   }
 
-  const key = Object.keys(comp).find(
-    (k) =>
-      k.toLowerCase().includes(target.toLowerCase()) ||
-      k.toLowerCase().includes(altTarget),
-  );
+  const key = Object.keys(comp).find((k) => {
+    const lk = k.toLowerCase();
+    return (
+      lk.includes(target.toLowerCase()) ||
+      lk.includes(altTarget) ||
+      lk.includes(numTarget)
+    );
+  });
+
   if (key && comp[key] !== undefined && comp[key] !== null) {
     return Array.isArray(comp[key]) ? comp[key].join("-") : String(comp[key]);
   }
+
+  if (comp.ci !== undefined && comp.ci !== null) return String(comp.ci);
+  if (comp.intervalo !== undefined && comp.intervalo !== null)
+    return String(comp.intervalo);
 
   return "-";
 };
@@ -300,23 +309,21 @@ export const getChartData = (items: IndexItem[]): ChartData => {
     i.composite !== "-" ? Number(i.composite) : null,
   );
 
-  const upperLimits = items.map((i) => {
-    if (i.ci && i.ci.includes("-")) {
-      const parts = i.ci.split("-");
-      const u = parseInt(parts[1], 10);
-      return isNaN(u) ? null : u;
+  const parseLimit = (
+    ciStr: string | undefined,
+    isUpper: boolean,
+  ): number | null => {
+    if (!ciStr || ciStr === "-") return null;
+    const match = String(ciStr).match(/(\d+)\s*[-–—/]\s*(\d+)/);
+    if (match) {
+      const val = parseInt(isUpper ? match[2] : match[1], 10);
+      return isNaN(val) ? null : val;
     }
     return null;
-  });
+  };
 
-  const lowerLimits = items.map((i) => {
-    if (i.ci && i.ci.includes("-")) {
-      const parts = i.ci.split("-");
-      const l = parseInt(parts[0], 10);
-      return isNaN(l) ? null : l;
-    }
-    return null;
-  });
+  const upperLimits = items.map((i) => parseLimit(i.ci, true));
+  const lowerLimits = items.map((i) => parseLimit(i.ci, false));
 
   return { categories, values, upperLimits, lowerLimits };
 };

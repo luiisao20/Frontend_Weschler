@@ -1,27 +1,44 @@
-import React, { useEffect, useState } from 'react';
-import { getPatients, deletePatient } from '../services/firestore';
-import type { Patient } from '../types';
-import { Navbar } from '../components/layout/Navbar';
-import { ModalPatientForm } from '../components/modals/ModalPatientForm';
-import { calculateAge } from '../utils/psychometrics';
-import { formatDate } from '../utils/formatDate';
-import { Search, UserPlus, Trash2, Calendar, CreditCard, User, ExternalLink, MapPin } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from "react";
+import {
+  deletePatient,
+  getPatientsByOwner,
+} from "../services/firestore";
+import { Navbar } from "../components/layout/Navbar";
+import { ModalPatientForm } from "../components/modals/ModalPatientForm";
+import { calculateAge } from "../utils/psychometrics";
+import { formatDate } from "../utils/formatDate";
+import {
+  Search,
+  UserPlus,
+  Trash2,
+  Calendar,
+  CreditCard,
+  User,
+  ExternalLink,
+  MapPin,
+} from "lucide-react";
+import { Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 export const HomePage: React.FC = () => {
   const [patients, setPatients] = useState<any[]>([]);
-  const [search, setSearch] = useState<string>('');
+  const [search, setSearch] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { user } = useAuth();
 
   const fetchPatientsList = async () => {
     setLoading(true);
     try {
-      const data = await getPatients();
-      setPatients(data);
+      const data = await getPatientsByOwner(user?.email!);
+      setPatients(
+        data.sort((a, b) =>
+          (a.lastName ?? "").localeCompare(b.lastName ?? ""),
+        ),
+      );
     } catch (err) {
-      console.error('Error fetching patients:', err);
+      console.error("Error fetching patients:", err);
     } finally {
       setLoading(false);
     }
@@ -32,7 +49,11 @@ export const HomePage: React.FC = () => {
   }, []);
 
   const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`¿Estás seguro de que deseas eliminar al paciente "${name}"?`)) {
+    if (
+      !window.confirm(
+        `¿Estás seguro de que deseas eliminar al paciente "${name}"?`,
+      )
+    ) {
       return;
     }
 
@@ -41,35 +62,35 @@ export const HomePage: React.FC = () => {
       await deletePatient(id);
       await fetchPatientsList();
     } catch (err) {
-      console.error('Error deleting patient:', err);
-      alert('Hubo un error al intentar eliminar el paciente.');
+      console.error("Error deleting patient:", err);
+      alert("Hubo un error al intentar eliminar el paciente.");
     } finally {
       setDeletingId(null);
     }
   };
 
   const getPatientFullName = (p: any): string => {
-    const fn = p.name || p.firstName || '';
-    const ln = p.lastname || p.lastName || '';
-    const full = `${fn} ${ln}`.trim();
-    return full || 'Paciente sin nombre';
+    const fn = p.name || p.firstName || "";
+    const ln = p.lastname || p.lastName || "";
+    const full = `${ln} ${fn}`.trim();
+    return full || "Paciente sin nombre";
   };
 
   const getPatientInitials = (p: any): string => {
-    const fn = p.name || p.firstName || '';
-    const ln = p.lastname || p.lastName || '';
-    const firstChar = fn ? fn.charAt(0) : '';
-    const lastChar = ln ? ln.charAt(0) : '';
+    const fn = p.name || p.firstName || "";
+    const ln = p.lastname || p.lastName || "";
+    const firstChar = fn ? fn.charAt(0) : "";
+    const lastChar = ln ? ln.charAt(0) : "";
     const inits = (firstChar + lastChar).toUpperCase();
-    return inits || 'P';
+    return inits || "P";
   };
 
   const getPatientDoc = (p: any): string => {
-    const docNum = p.document || p.id || p.cedula || 'N/A';
+    const docNum = p.document || p.id || p.cedula || "N/A";
     return String(docNum);
   };
 
-  const filteredPatients = patients.filter(p => {
+  const filteredPatients = patients.filter((p) => {
     const query = search.toLowerCase();
     const fullName = getPatientFullName(p).toLowerCase();
     const docNum = getPatientDoc(p).toLowerCase();
@@ -83,8 +104,12 @@ export const HomePage: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Directorio de Pacientes</h1>
-            <p className="text-sm text-gray-500 mt-1">Gestiona los pacientes registrados y sus evaluaciones clínicas.</p>
+            <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+              Directorio de Pacientes
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Gestiona los pacientes registrados y sus evaluaciones clínicas.
+            </p>
           </div>
 
           <button
@@ -104,7 +129,7 @@ export const HomePage: React.FC = () => {
             <input
               type="text"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar por nombre, apellido o documento..."
               className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50/50"
             />
@@ -120,9 +145,13 @@ export const HomePage: React.FC = () => {
             <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <User className="w-6 h-6" />
             </div>
-            <h3 className="text-base font-semibold text-gray-800">No se encontraron pacientes</h3>
+            <h3 className="text-base font-semibold text-gray-800">
+              No se encontraron pacientes
+            </h3>
             <p className="text-xs text-gray-500 mt-1 max-w-sm mx-auto">
-              {search ? 'No hay pacientes que coincidan con la búsqueda.' : 'Aún no has registrado ningún paciente. ¡Crea el primero!'}
+              {search
+                ? "No hay pacientes que coincidan con la búsqueda."
+                : "Aún no has registrado ningún paciente. ¡Crea el primero!"}
             </p>
           </div>
         ) : (
@@ -131,8 +160,18 @@ export const HomePage: React.FC = () => {
               const fullName = getPatientFullName(p);
               const initials = getPatientInitials(p);
               const docNum = getPatientDoc(p);
-              const birthdate = p.birthday || p.birthdate || p.fechaNacimiento || p.fecha_nacimiento || p.birthDate || '';
-              const age = birthdate ? calculateAge(birthdate) : (p.age ? { years: p.age, months: 0, days: 0 } : null);
+              const birthdate =
+                p.birthday ||
+                p.birthdate ||
+                p.fechaNacimiento ||
+                p.fecha_nacimiento ||
+                p.birthDate ||
+                "";
+              const age = birthdate
+                ? calculateAge(birthdate)
+                : p.age
+                  ? { years: p.age, months: 0, days: 0 }
+                  : null;
 
               return (
                 <div
@@ -174,7 +213,8 @@ export const HomePage: React.FC = () => {
                             <span>Nacimiento:</span>
                           </span>
                           <span className="font-semibold text-gray-800">
-                            {formatDate(birthdate)} {age ? `(${age.years} años)` : ''}
+                            {formatDate(birthdate)}{" "}
+                            {age ? `(${age.years} años)` : ""}
                           </span>
                         </div>
                       ) : age ? (
@@ -195,7 +235,9 @@ export const HomePage: React.FC = () => {
                             <MapPin className="w-3.5 h-3.5" />
                             <span>Ubicación:</span>
                           </span>
-                          <span className="font-medium text-gray-700">{p.location}</span>
+                          <span className="font-medium text-gray-700">
+                            {p.location}
+                          </span>
                         </div>
                       )}
                     </div>
