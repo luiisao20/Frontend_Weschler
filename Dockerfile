@@ -2,8 +2,10 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json package-lock.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml* ./
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 
 COPY . .
 
@@ -23,7 +25,7 @@ ENV VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID
 ENV VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID
 ENV VITE_FIREBASE_MEASUREMENT_ID=$VITE_FIREBASE_MEASUREMENT_ID
 
-RUN npm run build
+RUN pnpm run build
 
 FROM nginx:alpine
 
