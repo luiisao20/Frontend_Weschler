@@ -169,7 +169,7 @@ export const CompositeScoresChart: React.FC<CompositeScoresChartProps> = ({
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-gray-800">{title}</h3>
         {showLimits && (
-          <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100">
+          <span className="text-xs font-bold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100">
             IC {confidenceLabel}
           </span>
         )}

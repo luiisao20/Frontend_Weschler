@@ -197,7 +197,7 @@ export const WaisScalePage: React.FC = () => {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2 text-sm text-gray-500">
-            <Link to={`/patient/${patientId}`} className="hover:text-indigo-600 flex items-center space-x-1">
+            <Link to={`/patient/${patientId}`} className="hover:text-teal-600 flex items-center space-x-1">
               <ArrowLeft className="w-4 h-4" />
               <span>Volver al Paciente</span>
             </Link>
@@ -208,7 +208,7 @@ export const WaisScalePage: React.FC = () => {
           <button
             onClick={handleSave}
             disabled={isSaveDisabled}
-            className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-50 text-white font-semibold text-sm transition shadow-sm"
+            className="inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 disabled:opacity-50 text-white font-semibold text-sm transition shadow-sm"
           >
             <Save className="w-4 h-4" />
             <span>{saving ? 'Guardando...' : 'Guardar Evaluación'}</span>
@@ -232,7 +232,7 @@ export const WaisScalePage: React.FC = () => {
         <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-xs space-y-6">
           <div className="flex items-center justify-between border-b border-gray-100 pb-4">
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
+              <span className="text-xs font-bold uppercase tracking-wider text-teal-600 bg-teal-50 px-2.5 py-1 rounded-lg">
                 {getWaisLabel()}
               </span>
               <div className="flex items-center space-x-2 mt-2">
@@ -242,7 +242,7 @@ export const WaisScalePage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsEditNameModalOpen(true)}
-                  className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-colors"
+                  className="p-1.5 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-colors"
                   title="Editar nombre del registro"
                 >
                   <Pencil className="w-4 h-4" />
@@ -251,7 +251,7 @@ export const WaisScalePage: React.FC = () => {
             </div>
             <div className="text-right">
               <div className="flex items-center space-x-1.5 text-xs text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-100">
-                <Brain className="w-4 h-4 text-indigo-600" />
+                <Brain className="w-4 h-4 text-teal-600" />
                 <span>Edad: {yearsStr} años, {monthsStr} meses</span>
               </div>
             </div>

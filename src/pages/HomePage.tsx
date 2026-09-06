@@ -89,7 +89,7 @@ export const HomePage: React.FC = () => {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium text-sm transition shadow-sm shadow-indigo-200"
+            className="inline-flex items-center justify-center space-x-2 px-5 py-3 rounded-xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-medium text-sm transition shadow-sm shadow-teal-200"
           >
             <UserPlus className="w-4 h-4" />
             <span>Nuevo Paciente</span>
@@ -106,18 +106,18 @@ export const HomePage: React.FC = () => {
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar por nombre, apellido o documento..."
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50"
+              className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50/50"
             />
           </div>
         </div>
 
         {loading ? (
           <div className="py-12 flex justify-center items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
           </div>
         ) : filteredPatients.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <div className="w-12 h-12 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-3">
               <User className="w-6 h-6" />
             </div>
             <h3 className="text-base font-semibold text-gray-800">No se encontraron pacientes</h3>
@@ -137,12 +137,12 @@ export const HomePage: React.FC = () => {
               return (
                 <div
                   key={p.id}
-                  className="bg-white rounded-2xl border border-gray-100 hover:border-indigo-200 shadow-xs hover:shadow-md transition duration-200 p-6 flex flex-col justify-between"
+                  className="bg-white rounded-2xl border border-gray-100 hover:border-teal-200 shadow-xs hover:shadow-md transition duration-200 p-6 flex flex-col justify-between"
                 >
                   <div>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm border border-indigo-100">
+                        <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center font-bold text-sm border border-teal-100">
                           {initials}
                         </div>
                         <div>
@@ -204,7 +204,7 @@ export const HomePage: React.FC = () => {
                   <div className="mt-5 pt-4 border-t border-gray-100 flex justify-end">
                     <Link
                       to={`/patient/${p.id}`}
-                      className="inline-flex items-center space-x-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 transition"
+                      className="inline-flex items-center space-x-1 text-xs font-semibold text-teal-600 hover:text-teal-800 transition"
                     >
                       <span>Ver Expediente</span>
                       <ExternalLink className="w-3.5 h-3.5" />

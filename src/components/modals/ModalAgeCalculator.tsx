@@ -105,7 +105,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
         {/* Modal Header */}
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center space-x-2.5 text-gray-800 font-semibold text-lg">
-            <div className="bg-indigo-100 p-2 rounded-xl text-indigo-600">
+            <div className="bg-teal-100 p-2 rounded-xl text-teal-600">
               <Calculator className="w-5 h-5" />
             </div>
             <span className="font-bold text-gray-900">Crear nueva evaluación</span>
@@ -133,7 +133,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
                 value={evalName}
                 onChange={e => { setEvalName(e.target.value); setErrors(prev => ({ ...prev, evalName: '', scale: '' })); }}
                 placeholder="Registro 1"
-                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/30 font-medium ${
+                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50/30 font-medium ${
                   errors.evalName ? 'border-red-400 bg-red-50/30' : 'border-gray-200'
                 }`}
               />
@@ -147,7 +147,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
               <select
                 value={scaleType}
                 onChange={e => { setScaleType(e.target.value as ScaleOption); setErrors(prev => ({ ...prev, scale: '' })); }}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white font-semibold text-gray-800"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-white font-semibold text-gray-800"
               >
                 <option value="wais_c">WAIS (Chilena)</option>
                 <option value="wais_e">WAIS (Española)</option>
@@ -170,7 +170,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
                 type="date"
                 value={evalDate}
                 onChange={e => { setEvalDate(e.target.value); setErrors(prev => ({ ...prev, evalDate: '', scale: '' })); }}
-                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50 ${
+                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50/50 ${
                   errors.evalDate ? 'border-red-400 bg-red-50/30' : 'border-gray-200'
                 }`}
               />
@@ -187,7 +187,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
                 max={todayStr}
                 value={birthdate}
                 onChange={e => { setBirthdate(e.target.value); setErrors(prev => ({ ...prev, birthdate: '', scale: '' })); }}
-                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50 ${
+                className={`w-full px-3.5 py-2.5 rounded-xl border focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50/50 ${
                   errors.birthdate ? 'border-red-400 bg-red-50/30' : 'border-gray-200'
                 }`}
               />
@@ -196,42 +196,42 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
           </div>
 
           {/* Age Section */}
-          <div className="bg-indigo-50/60 p-4 rounded-2xl border border-indigo-100 space-y-3">
-            <h4 className="text-xs font-bold text-indigo-900 uppercase tracking-wider">
+          <div className="bg-teal-50/60 p-4 rounded-2xl border border-teal-100 space-y-3">
+            <h4 className="text-xs font-bold text-teal-900 uppercase tracking-wider">
               Edad Cronológica (Calculada / Modificable)
             </h4>
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] font-bold text-indigo-700 uppercase mb-1">Años</label>
+                <label className="block text-[11px] font-bold text-teal-700 uppercase mb-1">Años</label>
                 <input
                   type="number"
                   min="0"
                   max="120"
                   value={years}
                   onChange={e => { setYears(parseInt(e.target.value, 10) || 0); setErrors(prev => ({ ...prev, scale: '' })); }}
-                  className="w-full px-3 py-2 bg-white rounded-xl border border-indigo-200 font-extrabold text-indigo-900 text-center text-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white rounded-xl border border-teal-200 font-extrabold text-teal-900 text-center text-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-indigo-700 uppercase mb-1">Meses</label>
+                <label className="block text-[11px] font-bold text-teal-700 uppercase mb-1">Meses</label>
                 <input
                   type="number"
                   min="0"
                   max="11"
                   value={months}
                   onChange={e => { setMonths(parseInt(e.target.value, 10) || 0); setErrors(prev => ({ ...prev, scale: '' })); }}
-                  className="w-full px-3 py-2 bg-white rounded-xl border border-indigo-200 font-extrabold text-indigo-900 text-center text-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white rounded-xl border border-teal-200 font-extrabold text-teal-900 text-center text-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-bold text-indigo-700 uppercase mb-1">Días</label>
+                <label className="block text-[11px] font-bold text-teal-700 uppercase mb-1">Días</label>
                 <input
                   type="number"
                   min="0"
                   max="31"
                   value={days}
                   onChange={e => setDays(parseInt(e.target.value, 10) || 0)}
-                  className="w-full px-3 py-2 bg-white rounded-xl border border-indigo-200 font-extrabold text-indigo-900 text-center text-lg focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-white rounded-xl border border-teal-200 font-extrabold text-teal-900 text-center text-lg focus:outline-hidden focus:ring-2 focus:ring-teal-500"
                 />
               </div>
             </div>
@@ -257,7 +257,7 @@ export const ModalAgeCalculator: React.FC<ModalAgeCalculatorProps> = ({
               type="button"
               onClick={handleStartEvaluation}
               disabled={validatingScale}
-              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition shadow-sm disabled:opacity-50"
+              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 transition shadow-sm disabled:opacity-50"
             >
               {validatingScale ? (
                 <>

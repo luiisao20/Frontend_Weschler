@@ -27,7 +27,7 @@ export const IndexesSum: React.FC<IndexesSumProps> = ({
           return (
             <div key={idx.code} className="bg-gray-50 p-3.5 rounded-xl border border-gray-100 flex flex-col items-center justify-center">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{idx.code}</span>
-              <span className="text-xl font-bold text-indigo-600 mt-1">
+              <span className="text-xl font-bold text-teal-600 mt-1">
                 {sumVal !== undefined && sumVal !== null ? sumVal : '-'}
               </span>
               <span className="text-[11px] text-gray-400 text-center truncate max-w-full mt-0.5">{idx.name}</span>

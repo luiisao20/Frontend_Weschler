@@ -2,9 +2,8 @@ import { jsPDF } from 'jspdf';
 import { toPng } from 'html-to-image';
 
 /**
- * Exports one or more HTML A4 pages or a continuous element to a high-resolution PDF.
- * @param element The container element containing .pdf-page elements or the entire printable document
- * @param filename Desired filename for the download
+ * Exports an HTML container intelligently by breaking it down into blocks.
+ * Uses html-to-image (which supports modern CSS like oklch) and jsPDF.
  */
 export async function exportHtmlToPdf(
   element: HTMLElement,
@@ -17,48 +16,65 @@ export async function exportHtmlToPdf(
     compress: true
   });
 
-  // Query individual A4 pages inside the container if present
-  const pages = element.querySelectorAll<HTMLElement>('.pdf-page');
+  const pageWidth = 210;
+  const pageHeight = 297;
+  const margin = 10;
+  const usableWidth = pageWidth - margin * 2;
+  const usableHeight = pageHeight - margin * 2;
 
-  if (pages && pages.length > 0) {
-    for (let i = 0; i < pages.length; i++) {
-      const page = pages[i];
-      const dataUrl = await toPng(page, {
+  let currentY = margin;
+  let pageCount = 1;
+
+  // Find all elements marked as a block that shouldn't be cut
+  const blocks = element.querySelectorAll<HTMLElement>('.pdf-block');
+
+  if (!blocks || blocks.length === 0) {
+    console.error("No .pdf-block elements found. Cannot generate paginated PDF.");
+    return;
+  }
+
+  // Iterate over each block and render it as an image
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+    
+    // We add a tiny delay to ensure charting libraries and fonts are fully rendered
+    await new Promise(r => setTimeout(r, 50));
+
+    try {
+      const dataUrl = await toPng(block, {
         quality: 0.98,
-        pixelRatio: 2, // High DPI for crisp text and graphics
+        pixelRatio: 2,
         backgroundColor: '#ffffff',
-        cacheBust: true
+        cacheBust: true,
       });
 
-      if (i > 0) {
-        pdf.addPage('a4', 'portrait');
+      // Calculate heights
+      const imgProps = pdf.getImageProperties(dataUrl);
+      const blockPixelWidth = block.offsetWidth;
+      const blockPixelHeight = block.offsetHeight;
+      
+      // Since we are capturing individual blocks inside a padded container,
+      // the blocks themselves don't include the parent's padding in the image.
+      // We want to stretch them to fill the PDF usable width entirely.
+      const widthInMm = usableWidth;
+      const heightInMm = (blockPixelHeight / blockPixelWidth) * widthInMm;
+
+      // If the block is taller than a single page, we can't avoid cutting it, 
+      // but if it fits and just exceeds current Y, add a page.
+      if (currentY + heightInMm > usableHeight + margin) {
+        // Only add page if we are not already at the top
+        if (currentY > margin) {
+            pdf.addPage('a4', 'portrait');
+            pageCount++;
+            currentY = margin;
+        }
       }
 
-      pdf.addImage(dataUrl, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
-    }
-  } else {
-    // Single container fallback
-    const dataUrl = await toPng(element, {
-      quality: 0.98,
-      pixelRatio: 2,
-      backgroundColor: '#ffffff',
-      cacheBust: true
-    });
-
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const imgHeight = (element.offsetHeight * pageWidth) / element.offsetWidth;
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(dataUrl, 'PNG', 0, position, pageWidth, imgHeight, undefined, 'FAST');
-    heightLeft -= pageHeight;
-
-    while (heightLeft > 5) {
-      position -= pageHeight;
-      pdf.addPage('a4', 'portrait');
-      pdf.addImage(dataUrl, 'PNG', 0, position, pageWidth, imgHeight, undefined, 'FAST');
-      heightLeft -= pageHeight;
+      pdf.addImage(dataUrl, 'PNG', margin, currentY, widthInMm, heightInMm, undefined, 'FAST');
+      currentY += heightInMm + 4; // Add 4mm spacing between blocks
+      
+    } catch (e) {
+      console.warn("Could not render block to image", e);
     }
   }
 

@@ -117,7 +117,7 @@ export const PatientPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 flex flex-col">
         <Navbar />
         <div className="flex-1 flex justify-center items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
         </div>
       </div>
     );
@@ -129,7 +129,7 @@ export const PatientPage: React.FC = () => {
         <Navbar />
         <div className="max-w-7xl mx-auto px-4 py-12 text-center">
           <h2 className="text-xl font-bold text-gray-800">Paciente no encontrado</h2>
-          <Link to="/home" className="text-indigo-600 mt-4 inline-block hover:underline">
+          <Link to="/home" className="text-teal-600 mt-4 inline-block hover:underline">
             Volver a la lista de pacientes
           </Link>
         </div>
@@ -151,7 +151,7 @@ export const PatientPage: React.FC = () => {
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="flex items-center space-x-2 text-sm text-gray-500">
-          <Link to="/home" className="hover:text-indigo-600 flex items-center space-x-1">
+          <Link to="/home" className="hover:text-teal-600 flex items-center space-x-1">
             <ArrowLeft className="w-4 h-4" />
             <span>Pacientes</span>
           </Link>
@@ -163,7 +163,7 @@ export const PatientPage: React.FC = () => {
         <div className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex items-start space-x-4">
-              <div className="w-16 h-16 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-indigo-100">
+              <div className="w-16 h-16 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold text-xl shadow-md shadow-teal-100">
                 {initials}
               </div>
               <div>
@@ -200,7 +200,7 @@ export const PatientPage: React.FC = () => {
 
             <button
               onClick={() => setIsAgeModalOpen(true)}
-              className="inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold text-sm transition shadow-lg shadow-indigo-200"
+              className="inline-flex items-center justify-center space-x-2 px-6 py-3.5 rounded-2xl bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold text-sm transition shadow-lg shadow-teal-200"
             >
               <Plus className="w-5 h-5" />
               <span>Aplicar Nueva Evaluación</span>
@@ -233,12 +233,12 @@ export const PatientPage: React.FC = () => {
                 return (
                   <div
                     key={ev.id}
-                    className="bg-white rounded-2xl border border-gray-100 p-5 shadow-xs hover:border-indigo-200 transition flex flex-col justify-between"
+                    className="bg-white rounded-2xl border border-gray-100 p-5 shadow-xs hover:border-teal-200 transition flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex items-start justify-between">
                         <div>
-                          <span className="inline-block px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          <span className="inline-block px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-lg bg-teal-50 text-teal-700 border border-teal-100">
                             {scaleName}
                           </span>
                           <h4 className="font-semibold text-gray-800 mt-2 text-base">
@@ -264,9 +264,9 @@ export const PatientPage: React.FC = () => {
                             const valObj = idxMap[idxKey];
                             const displayVal = getDisplayScore(valObj, idxKey);
                             return (
-                              <div key={idxKey} className="bg-indigo-50/50 border border-indigo-100/60 p-2 rounded-xl text-center">
-                                <div className="text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">{idxKey}</div>
-                                <div className="text-base font-extrabold text-indigo-900 mt-0.5">
+                              <div key={idxKey} className="bg-teal-50/50 border border-teal-100/60 p-2 rounded-xl text-center">
+                                <div className="text-[10px] font-extrabold text-teal-500 uppercase tracking-wider">{idxKey}</div>
+                                <div className="text-base font-extrabold text-teal-900 mt-0.5">
                                   {displayVal}
                                 </div>
                               </div>
@@ -289,7 +289,7 @@ export const PatientPage: React.FC = () => {
 
                       <button
                         onClick={() => setSelectedEval(ev)}
-                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition flex items-center space-x-1"
+                        className="text-xs font-bold text-teal-600 hover:text-teal-800 transition flex items-center space-x-1"
                       >
                         <span>Ver Detalle</span>
                         <span>→</span>

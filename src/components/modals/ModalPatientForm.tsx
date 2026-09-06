@@ -86,7 +86,7 @@ export const ModalPatientForm: React.FC<ModalPatientFormProps> = ({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
           <div className="flex items-center space-x-2.5 text-gray-800 font-semibold text-lg">
-            <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+            <div className="bg-teal-100 p-2 rounded-lg text-teal-600">
               <UserPlus className="w-5 h-5" />
             </div>
             <span>Registrar Nuevo Paciente</span>
@@ -117,7 +117,7 @@ export const ModalPatientForm: React.FC<ModalPatientFormProps> = ({
                 value={formData.name}
                 onChange={handleChange}
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                 placeholder="Ej. Juan Carlos"
               />
             </div>
@@ -132,7 +132,7 @@ export const ModalPatientForm: React.FC<ModalPatientFormProps> = ({
                 value={formData.lastname}
                 onChange={handleChange}
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                 placeholder="Ej. Pérez Gómez"
               />
             </div>
@@ -149,7 +149,7 @@ export const ModalPatientForm: React.FC<ModalPatientFormProps> = ({
                 value={formData.document}
                 onChange={handleChange}
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                 placeholder="DNI, Cédula o RUT"
               />
             </div>
@@ -164,7 +164,7 @@ export const ModalPatientForm: React.FC<ModalPatientFormProps> = ({
                 value={formData.birthdate}
                 onChange={handleChange}
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
               />
             </div>
           </div>
@@ -178,7 +178,7 @@ export const ModalPatientForm: React.FC<ModalPatientFormProps> = ({
                 name="gender"
                 value={formData.gender}
                 onChange={handleChange}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-white"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-white"
               >
                 <option value="Masculino">Masculino</option>
                 <option value="Femenino">Femenino</option>
@@ -195,7 +195,7 @@ export const ModalPatientForm: React.FC<ModalPatientFormProps> = ({
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                 placeholder="Ej. Bogotá, Madrid"
               />
             </div>
@@ -212,7 +212,7 @@ export const ModalPatientForm: React.FC<ModalPatientFormProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition shadow-sm"
+              className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 transition shadow-sm"
             >
               <Save className="w-4 h-4" />
               <span>{loading ? 'Guardando...' : 'Guardar Paciente'}</span>
