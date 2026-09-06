@@ -1,8 +1,6 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.MODE === 'production' 
-  ? import.meta.env.VITE_API_URL_PROD
-  : '/api-chat'; 
+const baseURL = import.meta.env.VITE_API_URL_PROD || '/api-chat'; 
 
 const apiClient = axios.create({
   baseURL,
