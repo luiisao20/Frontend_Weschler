@@ -25,7 +25,7 @@ ENV VITE_FIREBASE_MEASUREMENT_ID=$VITE_FIREBASE_MEASUREMENT_ID
 
 RUN npm run build
 
-FROM node:22-alpine AS runtime
+FROM nginx:alpine
 
 COPY --from=builder /app/dist /usr/share/nginx/html
 
