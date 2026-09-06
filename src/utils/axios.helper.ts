@@ -9,9 +9,15 @@ const apiClient = axios.create({
   },
 });
 
-export const fetchAIAssessmentStream = async (datosPaciente: any) => {
+export type AIProvider = 'openai' | 'claude';
+
+export const fetchAIAssessmentStream = async (
+  datosPaciente: any,
+  provider: AIProvider = 'openai'
+) => {
+  const endpoint = provider === 'claude' ? '/chat/claude' : '/chat/openai';
   const response = await apiClient.post(
-    '/chat',
+    endpoint,
     { mensaje: datosPaciente },
     {
       responseType: 'stream',
