@@ -93,15 +93,15 @@ export const TableIndexes: React.FC<TableIndexesProps> = ({
         <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-xl border border-gray-200">
           <span className="text-xs font-semibold text-gray-600">Intervalo:</span>
           <label className="inline-flex items-center cursor-pointer gap-2">
-            <span className={`text-xs font-bold ${!range ? 'text-indigo-600' : 'text-gray-400'}`}>90%</span>
+            <span className={`text-xs font-bold ${!range ? 'text-teal-600' : 'text-gray-400'}`}>90%</span>
             <input
               type="checkbox"
               checked={range}
               onChange={e => handleToggle(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-indigo-600 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-            <span className={`text-xs font-bold ${range ? 'text-indigo-600' : 'text-gray-400'}`}>95%</span>
+            <div className="relative w-9 h-5 bg-gray-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-teal-600 after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+            <span className={`text-xs font-bold ${range ? 'text-teal-600' : 'text-gray-400'}`}>95%</span>
           </label>
         </div>
       </div>
@@ -127,7 +127,7 @@ export const TableIndexes: React.FC<TableIndexesProps> = ({
               return (
                 <tr key={idx.code} className="hover:bg-gray-50/60 transition">
                   <td className="px-5 py-3.5 font-medium text-gray-800">
-                    <span className="font-bold text-indigo-600 mr-2">{idx.code}</span>
+                    <span className="font-bold text-teal-600 mr-2">{idx.code}</span>
                     <span className="text-xs text-gray-500 hidden sm:inline">{idx.name}</span>
                   </td>
                   {showWNV && (
@@ -137,7 +137,7 @@ export const TableIndexes: React.FC<TableIndexesProps> = ({
                   )}
                   <td className="px-5 py-3.5 text-center font-bold text-base text-gray-900">
                     {compositeVal !== '-' ? (
-                      <span className="text-indigo-700 font-extrabold">{compositeVal}</span>
+                      <span className="text-teal-700 font-extrabold">{compositeVal}</span>
                     ) : (
                       <span className="text-gray-300">-</span>
                     )}
@@ -147,7 +147,7 @@ export const TableIndexes: React.FC<TableIndexesProps> = ({
                   </td>
                   <td className="px-5 py-3.5 text-center font-medium text-gray-600">
                     {ciVal !== '-' ? (
-                      <span className="bg-indigo-50/70 text-indigo-700 px-2.5 py-1 rounded-md text-xs font-semibold border border-indigo-100">
+                      <span className="bg-teal-50/70 text-teal-700 px-2.5 py-1 rounded-md text-xs font-semibold border border-teal-100">
                         {ciVal}
                       </span>
                     ) : (

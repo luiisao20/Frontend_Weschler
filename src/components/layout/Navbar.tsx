@@ -21,11 +21,11 @@ export const Navbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center space-x-3">
-            <Link to="/home" className="flex items-center space-x-2 text-indigo-600 font-bold text-xl hover:opacity-90">
-              <div className="bg-indigo-100 p-2 rounded-xl text-indigo-600">
+            <Link to="/home" className="flex items-center space-x-2 text-teal-600 font-bold text-xl hover:opacity-90">
+              <div className="bg-teal-100 p-2 rounded-xl text-teal-600">
                 <Brain className="w-6 h-6" />
               </div>
-              <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-teal-600 to-teal-600 bg-clip-text text-transparent">
                 Intelligence Scales
               </span>
             </Link>
@@ -35,7 +35,7 @@ export const Navbar: React.FC = () => {
             <div className="flex items-center space-x-4">
               <Link
                 to="/home"
-                className="flex items-center space-x-1 text-sm text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-lg hover:bg-gray-50 transition"
+                className="flex items-center space-x-1 text-sm text-gray-600 hover:text-teal-600 px-3 py-2 rounded-lg hover:bg-gray-50 transition"
               >
                 <Home className="w-4 h-4" />
                 <span className="hidden sm:inline font-medium">Pacientes</span>
@@ -43,9 +43,9 @@ export const Navbar: React.FC = () => {
 
               <Link
                 to="/user"
-                className="flex items-center space-x-2 text-sm text-gray-600 hover:text-indigo-600 px-3 py-2 rounded-lg hover:bg-gray-50 transition"
+                className="flex items-center space-x-2 text-sm text-gray-600 hover:text-teal-600 px-3 py-2 rounded-lg hover:bg-gray-50 transition"
               >
-                <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold text-xs border border-indigo-200">
+                <div className="w-7 h-7 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center font-semibold text-xs border border-teal-200">
                   {user.email ? user.email.charAt(0).toUpperCase() : <UserIcon className="w-4 h-4" />}
                 </div>
                 <span className="hidden sm:inline font-medium max-w-[150px] truncate">{user.email}</span>

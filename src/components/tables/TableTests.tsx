@@ -43,7 +43,7 @@ export const TableTests: React.FC<TableTestsProps> = ({
                 <tr key={t.code} className="hover:bg-gray-50/60 transition">
                   <td className="px-6 py-3.5 font-medium text-gray-800">
                     <div className="flex items-center space-x-2">
-                      <span className="inline-block px-2 py-0.5 text-xs font-bold rounded bg-indigo-50 text-indigo-700 border border-indigo-100">
+                      <span className="inline-block px-2 py-0.5 text-xs font-bold rounded bg-teal-50 text-teal-700 border border-teal-100">
                         {t.code}
                       </span>
                       <span>{t.name}</span>
@@ -55,13 +55,13 @@ export const TableTests: React.FC<TableTestsProps> = ({
                       min="0"
                       value={inputs[t.code] !== undefined ? inputs[t.code] : ''}
                       onChange={e => onInputChange(t.code, e.target.value)}
-                      className="w-20 px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-center font-semibold text-sm"
+                      className="w-20 px-3 py-1.5 rounded-lg border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 text-center font-semibold text-sm"
                       placeholder="0"
                     />
                   </td>
                   <td className="px-6 py-3.5 text-center font-bold text-base">
                     {scalar !== undefined && scalar !== null ? (
-                      <span className="text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg">
+                      <span className="text-teal-600 bg-teal-50 px-3 py-1 rounded-lg">
                         {scalar}
                       </span>
                     ) : (

@@ -28,7 +28,7 @@ export const UserProfilePage: React.FC = () => {
 
         <div className="bg-white rounded-3xl border border-gray-100 p-8 shadow-xs space-y-6">
           <div className="flex items-center space-x-5">
-            <div className="w-20 h-20 rounded-3xl bg-indigo-600 text-white flex items-center justify-center font-bold text-3xl shadow-lg shadow-indigo-100">
+            <div className="w-20 h-20 rounded-3xl bg-teal-600 text-white flex items-center justify-center font-bold text-3xl shadow-lg shadow-teal-100">
               {user?.email ? user.email.charAt(0).toUpperCase() : <User className="w-10 h-10" />}
             </div>
             <div>
@@ -42,7 +42,7 @@ export const UserProfilePage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-100">
             <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 flex items-center space-x-4">
-              <div className="p-3 bg-indigo-100 text-indigo-600 rounded-xl">
+              <div className="p-3 bg-teal-100 text-teal-600 rounded-xl">
                 <Users className="w-6 h-6" />
               </div>
               <div>

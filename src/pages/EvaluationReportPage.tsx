@@ -1,16 +1,31 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Navbar } from '../components/layout/Navbar';
-import { getEvaluationById, getPatientById, updateEvaluation } from '../services/firestore';
-import { useAuth } from '../context/AuthContext';
-import type { Evaluation, Patient } from '../types';
-import { waisTests, waisIndexes } from '../data/scaleInfo/waisInfo';
-import { wiscTests, wiscPrimaryIndexes, wiscSecondaryIndexes } from '../data/scaleInfo/wiscInfo';
-import { wppsiTests, wppsiPrimaryIndexes, wppsiSecondaryIndexes } from '../data/scaleInfo/wppsiInfo';
-import { wnvTests, wnvIndexes } from '../data/scaleInfo/wnvInfo';
-import { TealReportChart } from '../components/charts/TealReportChart';
-import { exportHtmlToPdf } from '../utils/pdfExport';
-import { generatePublicVerificationCode, computeVerificationHash } from '../utils/verification';
+import React, { useEffect, useState, useRef } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { Navbar } from "../components/layout/Navbar";
+import {
+  getEvaluationById,
+  getPatientById,
+  updateEvaluation,
+} from "../services/firestore";
+import { useAuth } from "../context/AuthContext";
+import type { Evaluation, Patient } from "../types";
+import { waisTests, waisIndexes } from "../data/scaleInfo/waisInfo";
+import {
+  wiscTests,
+  wiscPrimaryIndexes,
+  wiscSecondaryIndexes,
+} from "../data/scaleInfo/wiscInfo";
+import {
+  wppsiTests,
+  wppsiPrimaryIndexes,
+  wppsiSecondaryIndexes,
+} from "../data/scaleInfo/wppsiInfo";
+import { wnvTests, wnvIndexes } from "../data/scaleInfo/wnvInfo";
+import { TealReportChart } from "../components/charts/TealReportChart";
+import { exportHtmlToPdf } from "../utils/pdfExport";
+import {
+  generatePublicVerificationCode,
+  computeVerificationHash,
+} from "../utils/verification";
 import {
   ArrowLeft,
   Download,
@@ -29,14 +44,19 @@ import {
   ShieldCheck,
   Lock,
   ExternalLink,
-  X
-} from 'lucide-react';
-import axios from 'axios';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+  X,
+} from "lucide-react";
+import { fetchAIAssessmentStream } from "../utils/axios.helper";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useFormik } from "formik";
+import * as Yup from "yup";
 
 export const EvaluationReportPage: React.FC = () => {
-  const { id: patientIdParam, evalId: evalIdParam } = useParams<{ id?: string; evalId?: string }>();
-  const evaluationId = evalIdParam || patientIdParam || '';
+  const { id: patientIdParam, evalId: evalIdParam } = useParams<{
+    id?: string;
+    evalId?: string;
+  }>();
+  const evaluationId = evalIdParam || patientIdParam || "";
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -47,26 +67,65 @@ export const EvaluationReportPage: React.FC = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // In-Memory Form Fields (NOT saved to DB for patient privacy)
-  const [patientName, setPatientName] = useState<string>('');
-  const [documentId, setDocumentId] = useState<string>('');
-  const [ageDisplay, setAgeDisplay] = useState<string>('');
-  const [evalDate, setEvalDate] = useState<string>('');
-  const [diagnosis, setDiagnosis] = useState<string>('');
-  const [structuration, setStructuration] = useState<string>('');
-  const [evaluatorName, setEvaluatorName] = useState<string>('');
-  const [confidenceInterval, setConfidenceInterval] = useState<'90' | '95'>('90');
+  // In-Memory Form Fields (NOT saved to DB for patient privacy) managed by Formik
+  const formik = useFormik({
+    initialValues: {
+      patientName: "",
+      documentId: "",
+      ageDisplay: "",
+      evalDate: "",
+      diagnosis: "",
+      structuration: "",
+      evaluatorName: "",
+      evaluatorTitle: "",
+      evaluationPlace: "",
+      evaluationCity: "",
+      evaluationCountry: "",
+      confidenceInterval: "90" as "90" | "95",
+    },
+    validationSchema: Yup.object({
+      patientName: Yup.string().required("Requerido"),
+      documentId: Yup.string()
+        .matches(/^\d{10}$/, "Debe tener 10 dígitos")
+        .required("Requerido"),
+      ageDisplay: Yup.string().required("Requerido"),
+      evalDate: Yup.string().required("Requerido"),
+      diagnosis: Yup.string(),
+      structuration: Yup.string(),
+      evaluatorName: Yup.string().required("Requerido"),
+      evaluatorTitle: Yup.string(),
+      evaluationPlace: Yup.string(),
+      evaluationCity: Yup.string(),
+      evaluationCountry: Yup.string(),
+      confidenceInterval: Yup.string().oneOf(["90", "95"]).required(),
+    }),
+    onSubmit: () => {},
+  });
+  const {
+    patientName,
+    documentId,
+    ageDisplay,
+    evalDate,
+    diagnosis,
+    structuration,
+    evaluatorName,
+    evaluatorTitle,
+    evaluationPlace,
+    evaluationCity,
+    evaluationCountry,
+    confidenceInterval,
+  } = formik.values;
 
   // AI Modal State
   const [isAiModalOpen, setIsAiModalOpen] = useState<boolean>(false);
-  const [aiGeneratedText, setAiGeneratedText] = useState<string>('');
+  const [aiGeneratedText, setAiGeneratedText] = useState<string>("");
 
   // Verification metadata
-  const [verificationCode, setVerificationCode] = useState<string>('');
-  const [verificationHash, setVerificationHash] = useState<string>('');
+  const [verificationCode, setVerificationCode] = useState<string>("");
+  const [verificationHash, setVerificationHash] = useState<string>("");
 
   // Preview tab state on mobile / small screens
-  const [activeTab, setActiveTab] = useState<'form' | 'preview'>('form');
+  const [activeTab, setActiveTab] = useState<"form" | "preview">("form");
 
   const reportContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -77,14 +136,15 @@ export const EvaluationReportPage: React.FC = () => {
     getEvaluationById(evaluationId)
       .then(async (evalData) => {
         if (!evalData) {
-          setError('No se encontró la evaluación solicitada.');
+          setError("No se encontró la evaluación solicitada.");
           setLoading(false);
           return;
         }
 
         setEvaluation(evalData);
 
-        const patientId = evalData.patientId || evalData.patient || patientIdParam || '';
+        const patientId =
+          evalData.patientId || evalData.patient || patientIdParam || "";
         let patientData: Patient | null = null;
         if (patientId) {
           patientData = await getPatientById(patientId);
@@ -94,28 +154,48 @@ export const EvaluationReportPage: React.FC = () => {
         // Initialize In-Memory Form values from patient/evaluation data
         const pName = patientData
           ? `${patientData.firstName} ${patientData.lastName}`.trim()
-          : evalData.patientName || 'Paciente';
-        setPatientName(pName);
-
-        const docNum = (patientData?.document || evalData.document || '').replace(/\D/g, '').slice(0, 10);
-        setDocumentId(docNum);
-
+          : evalData.patientName || "Paciente";
+        const docNum = (patientData?.document || evalData.document || "")
+          .replace(/\D/g, "")
+          .slice(0, 10);
         const years = evalData.age?.years ?? evalData.years ?? 0;
         const months = evalData.age?.months ?? evalData.months ?? 0;
         const days = evalData.age?.days ?? evalData.days ?? 0;
-        setAgeDisplay(`${years} años, ${months} meses${days > 0 ? `, ${days} días` : ''}`);
+        const cAgeDisplay = `${years} años, ${months} meses${days > 0 ? `, ${days} días` : ""}`;
+        const cEvalDate =
+          evalData.date ||
+          evalData.testDay ||
+          new Date().toISOString().split("T")[0];
+        const cDiagnosis = evalData.diagnosis || evalData.dx || "";
+        const cStructuration =
+          evalData.structuration || evalData.observations || "";
+        const cEvaluatorName =
+          evalData.evaluator ||
+          user?.displayName ||
+          user?.email ||
+          "Especialista en Evaluación Psicológica";
 
-        setEvalDate(evalData.date || evalData.testDay || new Date().toISOString().split('T')[0]);
-        setDiagnosis(evalData.diagnosis || evalData.dx || '');
-        setStructuration(evalData.structuration || evalData.observations || '');
-        setEvaluatorName(evalData.evaluator || user?.displayName || user?.email || 'Especialista en Evaluación Psicológica');
+        formik.setValues({
+          patientName: pName,
+          documentId: docNum,
+          ageDisplay: cAgeDisplay,
+          evalDate: cEvalDate,
+          diagnosis: cDiagnosis,
+          structuration: cStructuration,
+          evaluatorName: cEvaluatorName,
+          evaluatorTitle: "",
+          evaluationPlace: "",
+          evaluationCity: "",
+          evaluationCountry: "",
+          confidenceInterval: "90",
+        });
 
         // Manage Cryptographic Verification Code & Hash (stored anonymously in DB)
         let vCode = evalData.verificationCode;
         let vHash = evalData.verificationHash;
 
         if (!vCode || !vHash) {
-          vCode = generatePublicVerificationCode(evalData.scale || 'EVAL');
+          vCode = generatePublicVerificationCode(evalData.scale || "EVAL");
           const payload = `${evalData.id || evaluationId}:${evalData.scale}:${evalData.date || evalData.testDay}:${JSON.stringify(evalData.scalarScores || {})}`;
           vHash = await computeVerificationHash(payload);
 
@@ -123,7 +203,7 @@ export const EvaluationReportPage: React.FC = () => {
           await updateEvaluation(evaluationId, {
             verificationCode: vCode,
             verificationHash: vHash,
-            verifiedAt: new Date().toISOString()
+            verifiedAt: new Date().toISOString(),
           });
         }
 
@@ -131,123 +211,173 @@ export const EvaluationReportPage: React.FC = () => {
         setVerificationHash(vHash);
       })
       .catch((err) => {
-        console.error('Error fetching evaluation for report:', err);
-        setError('Error al cargar la información para el informe.');
+        console.error("Error fetching evaluation for report:", err);
+        setError("Error al cargar la información para el informe.");
       })
       .finally(() => {
         setLoading(false);
       });
   }, [evaluationId, user]);
 
-  const handleDocumentChange = (val: string) => {
-    // Restrict strictly to max 10 numeric digits
-    const cleaned = val.replace(/\D/g, '').slice(0, 10);
-    setDocumentId(cleaned);
-  };
-
   const getQualitativeClassification = (scoreVal: any): string => {
-    if (scoreVal === undefined || scoreVal === null || scoreVal === '' || scoreVal === '-') return '-';
-    const num = typeof scoreVal === 'number' ? scoreVal : parseInt(String(scoreVal), 10);
-    if (isNaN(num) || num <= 0) return '-';
-    if (num >= 110) return 'Alto o superior';
-    if (num >= 90) return 'Normal promedio';
-    if (num >= 80) return 'Normal bajo';
-    if (num >= 70) return 'Limítrofe';
-    if (num >= 50) return 'Deficiencia cognitiva leve';
-    if (num >= 35) return 'Deficiencia cognitiva moderada';
-    return 'Deficiencia cognitiva grave';
+    if (
+      scoreVal === undefined ||
+      scoreVal === null ||
+      scoreVal === "" ||
+      scoreVal === "-"
+    )
+      return "-";
+    const num =
+      typeof scoreVal === "number" ? scoreVal : parseInt(String(scoreVal), 10);
+    if (isNaN(num) || num <= 0) return "-";
+    if (num >= 110) return "Alto o superior";
+    if (num >= 90) return "Normal promedio";
+    if (num >= 80) return "Normal bajo";
+    if (num >= 70) return "Limítrofe";
+    if (num >= 50) return "Deficiencia cognitiva leve";
+    if (num >= 35) return "Deficiencia cognitiva moderada";
+    return "Deficiencia cognitiva grave";
   };
 
   const getCompositeScoreValue = (comp: any, code: string): string => {
-    if (!comp) return '-';
-    if (typeof comp === 'number' || typeof comp === 'string') return String(comp);
-    if (comp[code] !== undefined && comp[code] !== null) return String(comp[code]);
-    if (comp.composite !== undefined && comp.composite !== null) return String(comp.composite);
-    if (comp.score !== undefined && comp.score !== null) return String(comp.score);
-    if (comp.value !== undefined && comp.value !== null) return String(comp.value);
+    if (!comp) return "-";
+    if (typeof comp === "number" || typeof comp === "string")
+      return String(comp);
+    if (comp[code] !== undefined && comp[code] !== null)
+      return String(comp[code]);
+    if (comp.composite !== undefined && comp.composite !== null)
+      return String(comp.composite);
+    if (comp.score !== undefined && comp.score !== null)
+      return String(comp.score);
+    if (comp.value !== undefined && comp.value !== null)
+      return String(comp.value);
 
-    const codeKey = Object.keys(comp).find((k) => k.toUpperCase().startsWith(code.toUpperCase()));
+    const codeKey = Object.keys(comp).find((k) =>
+      k.toUpperCase().startsWith(code.toUpperCase()),
+    );
     if (codeKey && comp[codeKey] !== undefined && comp[codeKey] !== null) {
       return String(comp[codeKey]);
     }
 
-    const ignoreKeys = ['percentil', 'percentile', '90%', '95%', 'ic90', 'ic95', 'rango'];
+    const ignoreKeys = [
+      "percentil",
+      "percentile",
+      "90%",
+      "95%",
+      "ic90",
+      "ic95",
+      "rango",
+    ];
     const numericKey = Object.keys(comp).find((k) => {
       const lowerK = k.toLowerCase();
       if (ignoreKeys.some((ik) => lowerK.includes(ik))) return false;
       const val = comp[k];
-      return typeof val === 'number' || (typeof val === 'string' && !isNaN(Number(val)) && String(val).trim() !== '');
+      return (
+        typeof val === "number" ||
+        (typeof val === "string" &&
+          !isNaN(Number(val)) &&
+          String(val).trim() !== "")
+      );
     });
 
-    if (numericKey && comp[numericKey] !== undefined && comp[numericKey] !== null) {
+    if (
+      numericKey &&
+      comp[numericKey] !== undefined &&
+      comp[numericKey] !== null
+    ) {
       return String(comp[numericKey]);
     }
 
-    return '-';
+    return "-";
   };
 
   const getPercentileValue = (comp: any): string => {
-    if (!comp || typeof comp !== 'object') return '-';
+    if (!comp || typeof comp !== "object") return "-";
     const keys = Object.keys(comp);
-    const percentileKey = keys.find((k) => k.toLowerCase().includes('percentil') || k.toLowerCase().includes('percentile'));
-    if (percentileKey && comp[percentileKey] !== undefined && comp[percentileKey] !== null) {
+    const percentileKey = keys.find(
+      (k) =>
+        k.toLowerCase().includes("percentil") ||
+        k.toLowerCase().includes("percentile"),
+    );
+    if (
+      percentileKey &&
+      comp[percentileKey] !== undefined &&
+      comp[percentileKey] !== null
+    ) {
       return String(comp[percentileKey]);
     }
-    return '-';
+    return "-";
   };
 
   const getConfidenceIntervalValue = (comp: any, is95: boolean): string => {
-    if (!comp || typeof comp !== 'object') return '-';
-    const target = is95 ? '95%' : '90%';
-    const altTarget = is95 ? 'ic95' : 'ic90';
+    if (!comp || typeof comp !== "object") return "-";
+    const target = is95 ? "95%" : "90%";
+    const altTarget = is95 ? "ic95" : "ic90";
 
-    if (comp[target] !== undefined && comp[target] !== null) return String(comp[target]);
+    if (comp[target] !== undefined && comp[target] !== null)
+      return String(comp[target]);
     if (comp[altTarget] !== undefined && comp[altTarget] !== null) {
-      return Array.isArray(comp[altTarget]) ? comp[altTarget].join('-') : String(comp[altTarget]);
+      return Array.isArray(comp[altTarget])
+        ? comp[altTarget].join("-")
+        : String(comp[altTarget]);
     }
 
-    const key = Object.keys(comp).find((k) => k.toLowerCase().includes(target.toLowerCase()) || k.toLowerCase().includes(altTarget));
+    const key = Object.keys(comp).find(
+      (k) =>
+        k.toLowerCase().includes(target.toLowerCase()) ||
+        k.toLowerCase().includes(altTarget),
+    );
     if (key && comp[key] !== undefined && comp[key] !== null) {
-      return Array.isArray(comp[key]) ? comp[key].join('-') : String(comp[key]);
+      return Array.isArray(comp[key]) ? comp[key].join("-") : String(comp[key]);
     }
 
-    return '-';
+    return "-";
   };
 
   const getScaleBadgeLabel = () => {
-    if (!evaluation) return 'EVALUACIÓN';
-    const scale = (evaluation.type || evaluation.scale || 'wais').toLowerCase();
-    if (scale === 'wais_c') return 'WAIS-IV (Versión Chilena)';
-    if (scale === 'wais_e') return 'WAIS-IV (Versión Española)';
-    if (scale === 'wais_m') return 'WAIS-IV (Versión Mexicana)';
-    if (scale.startsWith('wais')) return 'WAIS-IV';
-    if (scale.includes('wisc')) return 'WISC-V (Escala de Inteligencia de Wechsler para Niños)';
-    if (scale.includes('wppsi')) return 'WPPSI-IV (Escala de Inteligencia para Preescolar y Primaria)';
-    if (scale.includes('wnv')) return 'WNV (Escala No Verbal de Aptitud Intelectual)';
+    if (!evaluation) return "EVALUACIÓN";
+    const scale = (evaluation.type || evaluation.scale || "wais").toLowerCase();
+    if (scale === "wais_c") return "WAIS-IV (Versión Chilena)";
+    if (scale === "wais_e") return "WAIS-IV (Versión Española)";
+    if (scale === "wais_m") return "WAIS-IV (Versión Mexicana)";
+    if (scale.startsWith("wais")) return "WAIS-IV";
+    if (scale.includes("wisc"))
+      return "WISC-V (Escala de Inteligencia de Wechsler para Niños)";
+    if (scale.includes("wppsi"))
+      return "WPPSI-IV (Escala de Inteligencia para Preescolar y Primaria)";
+    if (scale.includes("wnv"))
+      return "WNV (Escala No Verbal de Aptitud Intelectual)";
     return scale.toUpperCase();
   };
 
   // Subtest list for Table
   const getSubtestRows = () => {
     if (!evaluation) return [];
-    const scale = (evaluation.type || evaluation.scale || 'wais').toLowerCase();
+    const scale = (evaluation.type || evaluation.scale || "wais").toLowerCase();
     let masterTests: { code: string; name: string }[] = [];
 
-    if (scale.includes('wisc')) masterTests = wiscTests;
-    else if (scale.includes('wppsi')) masterTests = wppsiTests;
-    else if (scale.includes('wnv')) masterTests = wnvTests;
+    if (scale.includes("wisc")) masterTests = wiscTests;
+    else if (scale.includes("wppsi")) masterTests = wppsiTests;
+    else if (scale.includes("wnv")) masterTests = wnvTests;
     else masterTests = waisTests;
 
     const rawScores = evaluation.rawScores || evaluation.scores || {};
     const scalarScores = evaluation.scalarScores || {};
 
     return masterTests
-      .filter((t) => rawScores[t.code] !== undefined || scalarScores[t.code] !== undefined)
+      .filter(
+        (t) =>
+          rawScores[t.code] !== undefined || scalarScores[t.code] !== undefined,
+      )
       .map((t) => ({
         code: t.code,
         name: t.name,
-        rawScore: rawScores[t.code] !== undefined && rawScores[t.code] !== '' ? rawScores[t.code] : '-',
-        scalarScore: scalarScores[t.code] !== undefined ? scalarScores[t.code] : '-'
+        rawScore:
+          rawScores[t.code] !== undefined && rawScores[t.code] !== ""
+            ? rawScores[t.code]
+            : "-",
+        scalarScore:
+          scalarScores[t.code] !== undefined ? scalarScores[t.code] : "-",
       }));
   };
 
@@ -255,21 +385,28 @@ export const EvaluationReportPage: React.FC = () => {
   const getIndexesData = () => {
     if (!evaluation) return { primaryList: [], secondaryList: [] };
 
-    const scale = (evaluation.type || evaluation.scale || 'wais').toLowerCase();
+    const scale = (evaluation.type || evaluation.scale || "wais").toLowerCase();
     let primaryDefs: { code: string; name: string }[] = [];
     let secondaryDefs: { code: string; name: string }[] = [];
 
-    if (scale.includes('wisc')) {
+    if (scale.includes("wisc")) {
       primaryDefs = wiscPrimaryIndexes;
       secondaryDefs = wiscSecondaryIndexes;
-    } else if (scale.includes('wppsi')) {
-      const years = evaluation?.age?.years || parseInt(String(ageDisplay).split(' ')[0]) || 0;
+    } else if (scale.includes("wppsi")) {
+      const years =
+        evaluation?.age?.years ||
+        parseInt(String(ageDisplay).split(" ")[0]) ||
+        0;
       const months = evaluation?.age?.months || 0;
       const chrAge = years + months / 12;
       const isEarlyAge = chrAge > 0 && chrAge < 4;
-      primaryDefs = isEarlyAge ? wppsiPrimaryIndexes.filter(i => !i.restriction) : wppsiPrimaryIndexes;
-      secondaryDefs = isEarlyAge ? wppsiSecondaryIndexes.filter(i => !i.restriction) : wppsiSecondaryIndexes;
-    } else if (scale.includes('wnv')) {
+      primaryDefs = isEarlyAge
+        ? wppsiPrimaryIndexes.filter((i) => !i.restriction)
+        : wppsiPrimaryIndexes;
+      secondaryDefs = isEarlyAge
+        ? wppsiSecondaryIndexes.filter((i) => !i.restriction)
+        : wppsiSecondaryIndexes;
+    } else if (scale.includes("wnv")) {
       primaryDefs = wnvIndexes;
       secondaryDefs = [];
     } else {
@@ -278,42 +415,56 @@ export const EvaluationReportPage: React.FC = () => {
     }
 
     const data = evaluation.data || {};
-    const primarySum = data.primarySum || data.sum || evaluation.indexesSum || {};
+    const primarySum =
+      data.primarySum || data.sum || evaluation.indexesSum || {};
     const secondarySum = data.secondarySum || {};
-    const primaryComposes = data.primaryComposes || data.composes || evaluation.indexes || {};
+    const primaryComposes =
+      data.primaryComposes || data.composes || evaluation.indexes || {};
     const secondaryComposes = data.secondaryComposes || {};
 
-    const parseItem = (idx: { code: string; name: string }, compMap: any, sumMap: any) => {
+    const parseItem = (
+      idx: { code: string; name: string },
+      compMap: any,
+      sumMap: any,
+    ) => {
       // Find the actual key in the map (e.g. "ICV" or "ICV 2-6 7-7")
-      const compKey = compMap ? Object.keys(compMap).find(k => k.toUpperCase().startsWith(idx.code.toUpperCase())) : null;
+      const compKey = compMap
+        ? Object.keys(compMap).find((k) =>
+            k.toUpperCase().startsWith(idx.code.toUpperCase()),
+          )
+        : null;
       const comp = compKey ? compMap[compKey] : null;
 
-      const sumKey = sumMap ? Object.keys(sumMap).find(k => k.toUpperCase().startsWith(idx.code.toUpperCase())) : null;
-      const sumVal = sumKey ? sumMap[sumKey] : '-';
+      const sumKey = sumMap
+        ? Object.keys(sumMap).find((k) =>
+            k.toUpperCase().startsWith(idx.code.toUpperCase()),
+          )
+        : null;
+      const sumVal = sumKey ? sumMap[sumKey] : "-";
 
       const compScore = getCompositeScoreValue(comp, idx.code);
       const percentile = getPercentileValue(comp);
-      const ci = getConfidenceIntervalValue(comp, confidenceInterval === '95');
+      const ci = getConfidenceIntervalValue(comp, confidenceInterval === "95");
       const qualitative = getQualitativeClassification(compScore);
 
       return {
         code: idx.code,
         name: idx.name,
-        sum: sumVal !== undefined ? sumVal : '-',
+        sum: sumVal !== undefined ? sumVal : "-",
         composite: compScore,
         percentile: percentile,
         ci: ci,
-        qualitative: qualitative
+        qualitative: qualitative,
       };
     };
 
     const primaryList = primaryDefs
       .map((idx) => parseItem(idx, primaryComposes, primarySum))
-      .filter((item) => item.composite !== '-' || item.sum !== '-');
+      .filter((item) => item.composite !== "-" || item.sum !== "-");
 
     const secondaryList = secondaryDefs
       .map((idx) => parseItem(idx, secondaryComposes, secondarySum))
-      .filter((item) => item.composite !== '-' || item.sum !== '-');
+      .filter((item) => item.composite !== "-" || item.sum !== "-");
 
     return { primaryList, secondaryList };
   };
@@ -322,13 +473,17 @@ export const EvaluationReportPage: React.FC = () => {
   const subtestRows = getSubtestRows();
 
   // Chart data extraction
-  const getChartData = (items: ReturnType<typeof getIndexesData>['primaryList']) => {
+  const getChartData = (
+    items: ReturnType<typeof getIndexesData>["primaryList"],
+  ) => {
     const categories = items.map((i) => i.code);
-    const values = items.map((i) => (i.composite !== '-' ? Number(i.composite) : null));
+    const values = items.map((i) =>
+      i.composite !== "-" ? Number(i.composite) : null,
+    );
 
     const upperLimits = items.map((i) => {
-      if (i.ci && i.ci.includes('-')) {
-        const parts = i.ci.split('-');
+      if (i.ci && i.ci.includes("-")) {
+        const parts = i.ci.split("-");
         const u = parseInt(parts[1], 10);
         return isNaN(u) ? null : u;
       }
@@ -336,8 +491,8 @@ export const EvaluationReportPage: React.FC = () => {
     });
 
     const lowerLimits = items.map((i) => {
-      if (i.ci && i.ci.includes('-')) {
-        const parts = i.ci.split('-');
+      if (i.ci && i.ci.includes("-")) {
+        const parts = i.ci.split("-");
         const l = parseInt(parts[0], 10);
         return isNaN(l) ? null : l;
       }
@@ -351,48 +506,44 @@ export const EvaluationReportPage: React.FC = () => {
   const secondaryChartData = getChartData(secondaryList);
 
   const fetchAIAnalysis = async () => {
-    setAiGeneratedText('');
+    setAiGeneratedText("");
 
     const resultados: Record<string, any> = {};
-    
-    primaryList.forEach(curr => {
-      if (curr.composite !== '-' && curr.composite !== undefined) {
+
+    primaryList.forEach((curr) => {
+      if (curr.composite !== "-" && curr.composite !== undefined) {
         resultados[`${curr.name} (${curr.code})`] = {
           puntaje: Number(curr.composite),
-          intervalo: curr.ci !== '-' ? curr.ci : null
+          intervalo: curr.ci !== "-" ? curr.ci : null,
         };
       }
     });
 
-    secondaryList.forEach(curr => {
-      if (curr.composite !== '-' && curr.composite !== undefined) {
+    secondaryList.forEach((curr) => {
+      if (curr.composite !== "-" && curr.composite !== undefined) {
         resultados[`${curr.name} (${curr.code})`] = {
           puntaje: Number(curr.composite),
-          intervalo: curr.ci !== '-' ? curr.ci : null
+          intervalo: curr.ci !== "-" ? curr.ci : null,
         };
       }
     });
 
     const datosPaciente = {
-      paciente_edad: evaluation?.age?.years || parseInt(String(ageDisplay).split(' ')[0]) || 0,
+      paciente_edad:
+        evaluation?.age?.years ||
+        parseInt(String(ageDisplay).split(" ")[0]) ||
+        0,
       prueba: getScaleBadgeLabel(),
       nivel_confianza: `${confidenceInterval}%`,
-      resultados
+      resultados,
     };
 
-    const respuesta = await axios.post("http://localhost:8000/chat",
-      { mensaje: datosPaciente },
-      {
-        responseType: 'stream',
-        adapter: 'fetch'
-      }
-    );
+    const stream = await fetchAIAssessmentStream(datosPaciente);
 
-    const stream = respuesta.data;
     if (!stream || !stream.getReader) {
-        const fallbackText = respuesta.data?.texto || JSON.stringify(respuesta.data);
-        setAiGeneratedText(fallbackText);
-        return fallbackText;
+      const fallbackText = stream?.texto || JSON.stringify(stream);
+      setAiGeneratedText(fallbackText);
+      return fallbackText;
     }
 
     const reader = stream.getReader();
@@ -405,7 +556,7 @@ export const EvaluationReportPage: React.FC = () => {
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
-      const lineas = chunk.split('\n');
+      const lineas = chunk.split("\n");
 
       for (let linea of lineas) {
         if (linea.startsWith("data: ")) {
@@ -415,22 +566,26 @@ export const EvaluationReportPage: React.FC = () => {
               textoCompleto += data.texto;
               setAiGeneratedText(textoCompleto);
             }
-          } catch (e) { }
+          } catch (e) {}
         }
       }
     }
-    
+
     return textoCompleto;
   };
 
   const queryClient = useQueryClient();
 
-  const { data: aiQueryData, isFetching: isGeneratingAI, refetch: refetchAI } = useQuery({
-    queryKey: ['aiAnalysis', evaluationId],
+  const {
+    data: aiQueryData,
+    isFetching: isGeneratingAI,
+    refetch: refetchAI,
+  } = useQuery({
+    queryKey: ["aiAnalysis", evaluationId],
     queryFn: fetchAIAnalysis,
     enabled: isAiModalOpen,
     staleTime: Infinity,
-    retry: false
+    retry: false,
   });
 
   useEffect(() => {
@@ -447,7 +602,11 @@ export const EvaluationReportPage: React.FC = () => {
     if (!reportContainerRef.current) return;
 
     if (documentId && documentId.length !== 10) {
-      if (!window.confirm('El número de cédula no tiene 10 dígitos. ¿Deseas generar el PDF de todas formas?')) {
+      if (
+        !window.confirm(
+          "El número de cédula no tiene 10 dígitos. ¿Deseas generar el PDF de todas formas?",
+        )
+      ) {
         return;
       }
     }
@@ -455,17 +614,19 @@ export const EvaluationReportPage: React.FC = () => {
     setDownloadingPdf(true);
     setError(null);
     try {
-      const cleanPatient = (patientName || 'paciente').replace(/\s+/g, '_');
-      const cleanScale = (evaluation?.scale || 'escala').toUpperCase();
+      const cleanPatient = (patientName || "paciente").replace(/\s+/g, "_");
+      const cleanScale = (evaluation?.scale || "escala").toUpperCase();
       const filename = `Informe_${cleanPatient}_${cleanScale}_${evalDate}.pdf`;
 
       await exportHtmlToPdf(reportContainerRef.current, filename);
 
-      setSuccessMsg('PDF generado y descargado correctamente.');
+      setSuccessMsg("PDF generado y descargado correctamente.");
       setTimeout(() => setSuccessMsg(null), 3500);
     } catch (err: any) {
-      console.error('Error generating PDF:', err);
-      setError('Ocurrió un error al generar el PDF. Por favor intenta nuevamente.');
+      console.error("Error generating PDF:", err);
+      setError(
+        "Ocurrió un error al generar el PDF. Por favor intenta nuevamente.",
+      );
     } finally {
       setDownloadingPdf(false);
     }
@@ -481,13 +642,16 @@ export const EvaluationReportPage: React.FC = () => {
         <Navbar />
         <div className="flex-1 flex flex-col items-center justify-center space-y-4">
           <Loader2 className="w-10 h-10 text-teal-600 animate-spin" />
-          <p className="text-sm font-semibold text-gray-600">Cargando datos para el informe...</p>
+          <p className="text-sm font-semibold text-gray-600">
+            Cargando datos para el informe...
+          </p>
         </div>
       </div>
     );
   }
 
-  const patientTargetId = patient?.id || evaluation?.patientId || evaluation?.patient || '';
+  const patientTargetId =
+    patient?.id || evaluation?.patientId || evaluation?.patient || "";
   const verificationUrl = `${window.location.origin}/verify?code=${verificationCode}`;
 
   return (
@@ -516,7 +680,9 @@ export const EvaluationReportPage: React.FC = () => {
               </button>
             )}
             <span>/</span>
-            <span className="text-gray-900 font-semibold">{patientName || 'Informe'}</span>
+            <span className="text-gray-900 font-semibold">
+              {patientName || "Informe"}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -579,17 +745,21 @@ export const EvaluationReportPage: React.FC = () => {
         {/* View mode toggle on mobile */}
         <div className="lg:hidden flex bg-white rounded-2xl p-1 border border-gray-200 shadow-xs">
           <button
-            onClick={() => setActiveTab('form')}
+            onClick={() => setActiveTab("form")}
             className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${
-              activeTab === 'form' ? 'bg-teal-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+              activeTab === "form"
+                ? "bg-teal-600 text-white shadow-xs"
+                : "text-gray-600 hover:text-gray-900"
             }`}
           >
             Formulario
           </button>
           <button
-            onClick={() => setActiveTab('preview')}
+            onClick={() => setActiveTab("preview")}
             className={`flex-1 py-2 text-sm font-bold rounded-xl transition-all ${
-              activeTab === 'preview' ? 'bg-teal-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+              activeTab === "preview"
+                ? "bg-teal-600 text-white shadow-xs"
+                : "text-gray-600 hover:text-gray-900"
             }`}
           >
             Vista Previa
@@ -601,16 +771,19 @@ export const EvaluationReportPage: React.FC = () => {
           {/* Left Column: Form Panel */}
           <div
             className={`lg:col-span-4 bg-white rounded-3xl border border-gray-100 p-6 sm:p-7 shadow-xs space-y-5 ${
-              activeTab === 'form' ? 'block' : 'hidden lg:block'
+              activeTab === "form" ? "block" : "hidden lg:block"
             }`}
           >
             <div className="border-b border-gray-100 pb-3.5">
               <div className="flex items-center space-x-2 text-teal-700 mb-1">
                 <FileText className="w-5 h-5" />
-                <h2 className="text-lg font-bold text-gray-900">Datos para el Informe</h2>
+                <h2 className="text-lg font-bold text-gray-900">
+                  Datos para el Informe
+                </h2>
               </div>
               <p className="text-xs text-gray-500">
-                Los datos se actualizan en vivo en la vista previa del documento.
+                Los datos se actualizan en vivo en la vista previa del
+                documento.
               </p>
             </div>
 
@@ -618,9 +791,13 @@ export const EvaluationReportPage: React.FC = () => {
             <div className="bg-teal-50/80 border border-teal-200/90 rounded-2xl p-3.5 flex items-start space-x-2.5 text-xs text-teal-900">
               <Lock className="w-4 h-4 text-teal-700 mt-0.5 flex-shrink-0" />
               <div className="space-y-0.5">
-                <span className="font-bold text-teal-900 block">Privacidad y Confidencialidad</span>
+                <span className="font-bold text-teal-900 block">
+                  Privacidad y Confidencialidad
+                </span>
                 <span className="text-[11px] text-teal-800 leading-snug block">
-                  Los nombres, número de cédula, diagnóstico y estructuración ingresados en este formulario no se guardan en la base de datos por protección de datos de salud.
+                  Los nombres, número de cédula, diagnóstico y estructuración
+                  ingresados en este formulario no se guardan en la base de
+                  datos por protección de datos de salud.
                 </span>
               </div>
             </div>
@@ -634,11 +811,18 @@ export const EvaluationReportPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  name="patientName"
                   value={patientName}
-                  onChange={(e) => setPatientName(e.target.value)}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                   placeholder="Ej. Juan Pérez"
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
                 />
+                {formik.touched.patientName && formik.errors.patientName ? (
+                  <div className="text-red-500 text-[10px] mt-1 font-medium">
+                    {formik.errors.patientName}
+                  </div>
+                ) : null}
               </div>
 
               {/* Document Cédula (Strict 10 digits) */}
@@ -650,7 +834,9 @@ export const EvaluationReportPage: React.FC = () => {
                   </label>
                   <span
                     className={`text-[11px] font-bold ${
-                      documentId.length === 10 ? 'text-teal-600' : 'text-amber-600'
+                      documentId.length === 10
+                        ? "text-teal-600"
+                        : "text-amber-600"
                     }`}
                   >
                     {documentId.length}/10 dígitos
@@ -659,13 +845,20 @@ export const EvaluationReportPage: React.FC = () => {
                 <input
                   type="text"
                   maxLength={10}
+                  name="documentId"
                   value={documentId}
-                  onChange={(e) => handleDocumentChange(e.target.value)}
+                  onChange={(e) => {
+                    const cleaned = e.target.value
+                      .replace(/\D/g, "")
+                      .slice(0, 10);
+                    formik.setFieldValue("documentId", cleaned);
+                  }}
+                  onBlur={formik.handleBlur}
                   placeholder="10 dígitos numéricos"
                   className={`w-full px-3.5 py-2.5 bg-gray-50 border rounded-xl font-mono text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 transition ${
                     documentId.length === 10
-                      ? 'border-teal-300 focus:ring-teal-500 focus:bg-white'
-                      : 'border-gray-200 focus:ring-teal-500 focus:bg-white'
+                      ? "border-teal-300 focus:ring-teal-500 focus:bg-white"
+                      : "border-gray-200 focus:ring-teal-500 focus:bg-white"
                   }`}
                 />
                 {documentId.length > 0 && documentId.length < 10 && (
@@ -683,11 +876,18 @@ export const EvaluationReportPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  name="ageDisplay"
                   value={ageDisplay}
-                  onChange={(e) => setAgeDisplay(e.target.value)}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                   placeholder="Ej. 10 años, 4 meses"
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
                 />
+                {formik.touched.ageDisplay && formik.errors.ageDisplay ? (
+                  <div className="text-red-500 text-[10px] mt-1 font-medium">
+                    {formik.errors.ageDisplay}
+                  </div>
+                ) : null}
               </div>
 
               {/* Date */}
@@ -698,10 +898,17 @@ export const EvaluationReportPage: React.FC = () => {
                 </label>
                 <input
                   type="date"
+                  name="evalDate"
                   value={evalDate}
-                  onChange={(e) => setEvalDate(e.target.value)}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
                 />
+                {formik.touched.evalDate && formik.errors.evalDate ? (
+                  <div className="text-red-500 text-[10px] mt-1 font-medium">
+                    {formik.errors.evalDate}
+                  </div>
+                ) : null}
               </div>
 
               {/* Diagnosis */}
@@ -712,8 +919,10 @@ export const EvaluationReportPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  name="diagnosis"
                   value={diagnosis}
-                  onChange={(e) => setDiagnosis(e.target.value)}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                   placeholder="Ej. Sospecha de Trastorno por Déficit de Atención (TDAH)"
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
                 />
@@ -724,21 +933,27 @@ export const EvaluationReportPage: React.FC = () => {
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 flex items-center">
                     <BookOpen className="w-3.5 h-3.5 mr-1 text-teal-600" />
-                    Estructuración / Conclusiones
+                    Interpretación Cualitativa
                   </label>
                   <button
                     onClick={handleGenerateAI}
                     disabled={isGeneratingAI}
-                    className="inline-flex items-center px-2.5 py-1 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 text-[10px] font-bold rounded-lg border border-indigo-200 transition cursor-pointer"
+                    className="inline-flex items-center px-2.5 py-1 bg-teal-50 text-teal-700 hover:bg-teal-100 text-[10px] font-bold rounded-lg border border-teal-200 transition cursor-pointer"
                   >
-                    {isGeneratingAI ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Brain className="w-3 h-3 mr-1" />}
+                    {isGeneratingAI ? (
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    ) : (
+                      <Brain className="w-3 h-3 mr-1" />
+                    )}
                     Generar Análisis con IA
                   </button>
                 </div>
                 <textarea
                   rows={4}
+                  name="structuration"
                   value={structuration}
-                  onChange={(e) => setStructuration(e.target.value)}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                   placeholder="Describe la estructuración del perfil cognitivo, fortalezas y recomendaciones..."
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition text-xs leading-relaxed"
                 />
@@ -751,9 +966,76 @@ export const EvaluationReportPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  name="evaluatorName"
                   value={evaluatorName}
-                  onChange={(e) => setEvaluatorName(e.target.value)}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
                   placeholder="Nombre del profesional"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+                />
+                {formik.touched.evaluatorName && formik.errors.evaluatorName ? (
+                  <div className="text-red-500 text-[10px] mt-1 font-medium">
+                    {formik.errors.evaluatorName}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Título del Evaluador */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                  Título del Profesional
+                </label>
+                <input
+                  type="text"
+                  name="evaluatorTitle"
+                  value={evaluatorTitle}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="Ej. Psicólogo Clínico"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+                />
+              </div>
+
+              {/* Lugar de evaluación, ciudad y país */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                  Lugar
+                </label>
+                <input
+                  type="text"
+                  name="evaluationPlace"
+                  value={evaluationPlace}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="Ej. Clínica ABC"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                  Ciudad
+                </label>
+                <input
+                  type="text"
+                  name="evaluationCity"
+                  value={evaluationCity}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="Ciudad"
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+                  País
+                </label>
+                <input
+                  type="text"
+                  name="evaluationCountry"
+                  value={evaluationCountry}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="País"
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
                 />
               </div>
@@ -766,18 +1048,26 @@ export const EvaluationReportPage: React.FC = () => {
                 <div className="grid grid-cols-2 gap-2 bg-gray-50 p-1 rounded-xl border border-gray-200">
                   <button
                     type="button"
-                    onClick={() => setConfidenceInterval('90')}
+                    onClick={() =>
+                      formik.setFieldValue("confidenceInterval", "90")
+                    }
                     className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                      confidenceInterval === '90' ? 'bg-teal-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                      confidenceInterval === "90"
+                        ? "bg-teal-600 text-white shadow-xs"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     IC 90%
                   </button>
                   <button
                     type="button"
-                    onClick={() => setConfidenceInterval('95')}
+                    onClick={() =>
+                      formik.setFieldValue("confidenceInterval", "95")
+                    }
                     className={`py-1.5 text-xs font-bold rounded-lg transition cursor-pointer ${
-                      confidenceInterval === '95' ? 'bg-teal-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+                      confidenceInterval === "95"
+                        ? "bg-teal-600 text-white shadow-xs"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     IC 95%
@@ -800,14 +1090,17 @@ export const EvaluationReportPage: React.FC = () => {
                   {verificationCode}
                 </p>
                 <p className="text-[10px] text-gray-500 text-center">
-                  Este código permite a terceros verificar la validez de este PDF en la plataforma.
+                  Este código permite a terceros verificar la validez de este
+                  PDF en la plataforma.
                 </p>
               </div>
             </div>
           </div>
 
           {/* Right Column: Live Printable Document Preview */}
-          <div className={`lg:col-span-8 ${activeTab === 'preview' ? 'block' : 'hidden lg:block'}`}>
+          <div
+            className={`lg:col-span-8 ${activeTab === "preview" ? "block" : "hidden lg:block"}`}
+          >
             <div className="flex items-center justify-between mb-3 px-1">
               <span className="text-xs font-bold uppercase tracking-wider text-gray-500 flex items-center">
                 <Eye className="w-4 h-4 mr-1 text-teal-600" />
@@ -823,10 +1116,10 @@ export const EvaluationReportPage: React.FC = () => {
               <div
                 ref={reportContainerRef}
                 className="pdf-page bg-white text-gray-900 rounded-2xl shadow-xl border border-gray-200 mx-auto p-8 sm:p-10 space-y-6 w-full max-w-[794px] min-h-[1123px] text-xs leading-normal"
-                style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}
+                style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}
               >
                 {/* Header with Teal Styling & Verification Tag */}
-                <div className="border-b-2 border-teal-700 pb-4 flex items-start justify-between">
+                <div className="border-b-2 border-teal-700 pb-4 flex items-start justify-between pdf-block bg-white">
                   <div>
                     <span className="text-[10px] font-extrabold uppercase tracking-widest text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-md">
                       {getScaleBadgeLabel()}
@@ -835,7 +1128,8 @@ export const EvaluationReportPage: React.FC = () => {
                       INFORME DE EVALUACIÓN PSICOMÉTRICA
                     </h1>
                     <p className="text-[11px] font-semibold text-gray-500 mt-0.5">
-                      {evaluation?.name || 'Evaluación de Inteligencia y Habilidades Cognitivas'}
+                      {evaluation?.name ||
+                        "Evaluación de Inteligencia y Habilidades Cognitivas"}
                     </p>
                   </div>
                   <div className="text-right text-[10px] text-gray-500 space-y-1">
@@ -847,63 +1141,111 @@ export const EvaluationReportPage: React.FC = () => {
                 </div>
 
                 {/* Section 1: Datos de Identificación y Clínicos */}
-                <div className="bg-teal-50/50 rounded-xl border border-teal-200 p-4">
+                <div className="bg-teal-50/50 rounded-xl border border-teal-200 p-4 break-inside-avoid avoid-page-break pdf-block bg-white">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-3 border-b border-teal-200/80 pb-1.5 flex items-center">
                     <User className="w-3.5 h-3.5 mr-1.5 text-teal-700" />
                     Datos del Paciente e Información Clínica
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-xs">
                     <div>
-                      <span className="text-[10px] font-bold uppercase text-teal-700 block">Paciente</span>
-                      <span className="font-bold text-gray-900">{patientName || '-'}</span>
+                      <span className="text-[10px] font-bold uppercase text-teal-700 block">
+                        Paciente
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        {patientName || "-"}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold uppercase text-teal-700 block">N° Cédula</span>
-                      <span className="font-bold font-mono text-gray-900">{documentId || '-'}</span>
+                      <span className="text-[10px] font-bold uppercase text-teal-700 block">
+                        N° Cédula
+                      </span>
+                      <span className="font-bold font-mono text-gray-900">
+                        {documentId || "-"}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold uppercase text-teal-700 block">Edad Cronológica</span>
-                      <span className="font-bold text-gray-900">{ageDisplay || '-'}</span>
+                      <span className="text-[10px] font-bold uppercase text-teal-700 block">
+                        Edad Cronológica
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        {ageDisplay || "-"}
+                      </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold uppercase text-teal-700 block">Fecha Aplicación</span>
-                      <span className="font-bold text-gray-900">{evalDate || '-'}</span>
+                      <span className="text-[10px] font-bold uppercase text-teal-700 block">
+                        Fecha Aplicación
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        {evalDate || "-"}
+                      </span>
                     </div>
                     <div className="sm:col-span-2">
-                      <span className="text-[10px] font-bold uppercase text-teal-700 block">Dx Presuntivo / Definitivo</span>
-                      <span className="font-bold text-gray-900">{diagnosis || 'No especificado'}</span>
+                      <span className="text-[10px] font-bold uppercase text-teal-700 block">
+                        Dx Presuntivo / Definitivo
+                      </span>
+                      <span className="font-bold text-gray-900">
+                        {diagnosis || "No especificado"}
+                      </span>
                     </div>
                     <div className="sm:col-span-3">
-                      <span className="text-[10px] font-bold uppercase text-teal-700 block">Evaluador / Profesional</span>
-                      <span className="font-semibold text-gray-800">{evaluatorName || '-'}</span>
+                      <span className="text-[10px] font-bold uppercase text-teal-700 block">
+                        Evaluador / Profesional
+                      </span>
+                      <span className="font-semibold text-gray-800">
+                        {evaluatorName || "-"}
+                      </span>
+                    </div>
+                    <div className="sm:col-span-3">
+                      <span className="text-[10px] font-bold uppercase text-teal-700 block">
+                        Lugar de Evaluación
+                      </span>
+                      <span className="font-semibold text-gray-800">
+                        {[evaluationPlace, evaluationCity, evaluationCountry]
+                          .filter(Boolean)
+                          .join(", ") || "-"}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 {/* Section 2: Subtests Table (if available) */}
                 {subtestRows.length > 0 && (
-                  <div>
+                  <div className="pdf-block bg-white">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2 flex items-center">
                       <Brain className="w-3.5 h-3.5 mr-1.5 text-teal-700" />
-                      Rendimiento en Subpruebas (Puntuaciones Directas y Escalares)
+                      Rendimiento en Subpruebas (Puntuaciones Directas y
+                      Escalares)
                     </h3>
-                    <div className="rounded-xl border border-teal-200 overflow-hidden">
+                    <div className="rounded-xl border border-teal-200 overflow-hidden break-inside-avoid avoid-page-break">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-teal-700 text-white font-bold uppercase text-[10px] tracking-wider">
                           <tr>
                             <th className="px-3 py-2">Subprueba</th>
-                            <th className="px-3 py-2 text-center w-28">Puntaje Directo (PD)</th>
-                            <th className="px-3 py-2 text-center w-28">Puntuación Escalar (PE)</th>
+                            <th className="px-3 py-2 text-center w-28">
+                              Puntaje Directo (PD)
+                            </th>
+                            <th className="px-3 py-2 text-center w-28">
+                              Puntuación Escalar (PE)
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-teal-100">
                           {subtestRows.map((row, idx) => (
-                            <tr key={row.code} className={idx % 2 === 0 ? 'bg-white' : 'bg-teal-50/30'}>
+                            <tr
+                              key={row.code}
+                              className={
+                                idx % 2 === 0 ? "bg-white" : "bg-teal-50/30"
+                              }
+                            >
                               <td className="px-3 py-1.5 font-medium text-gray-800">
-                                <span className="font-bold text-teal-700 mr-1.5">{row.code}</span>
+                                <span className="font-bold text-teal-700 mr-1.5">
+                                  {row.code}
+                                </span>
                                 <span>{row.name}</span>
                               </td>
-                              <td className="px-3 py-1.5 text-center font-semibold text-gray-700">{row.rawScore}</td>
+                              <td className="px-3 py-1.5 text-center font-semibold text-gray-700">
+                                {row.rawScore}
+                              </td>
                               <td className="px-3 py-1.5 text-center font-extrabold text-teal-900 bg-teal-100/40">
                                 {row.scalarScore}
                               </td>
@@ -917,36 +1259,61 @@ export const EvaluationReportPage: React.FC = () => {
 
                 {/* Section 3: Primary Indexes Table */}
                 {primaryList.length > 0 && (
-                  <div>
+                  <div className="pdf-block bg-white">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2 flex items-center">
                       <FileText className="w-3.5 h-3.5 mr-1.5 text-teal-700" />
                       Análisis Primario: Puntuaciones Compuestas e Índices
                     </h3>
-                    <div className="rounded-xl border border-teal-200 overflow-hidden">
+                    <div className="rounded-xl border border-teal-200 overflow-hidden break-inside-avoid avoid-page-break">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-teal-800 text-white font-bold uppercase text-[10px] tracking-wider">
                           <tr>
                             <th className="px-3 py-2">Índice</th>
-                            <th className="px-3 py-2 text-center w-20">Suma PE</th>
-                            <th className="px-3 py-2 text-center w-24">Punt. Compuesta</th>
-                            <th className="px-3 py-2 text-center w-20">Percentil</th>
-                            <th className="px-3 py-2 text-center w-24">IC ({confidenceInterval}%)</th>
-                            <th className="px-3 py-2 text-center">Clasificación Cualitativa</th>
+                            <th className="px-3 py-2 text-center w-20">
+                              Suma PE
+                            </th>
+                            <th className="px-3 py-2 text-center w-24">
+                              Punt. Compuesta
+                            </th>
+                            <th className="px-3 py-2 text-center w-20">
+                              Percentil
+                            </th>
+                            <th className="px-3 py-2 text-center w-24">
+                              IC ({confidenceInterval}%)
+                            </th>
+                            <th className="px-3 py-2 text-center">
+                              Clasificación Cualitativa
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-teal-100">
                           {primaryList.map((item, idx) => (
-                            <tr key={item.code} className={idx % 2 === 0 ? 'bg-white' : 'bg-teal-50/30'}>
+                            <tr
+                              key={item.code}
+                              className={
+                                idx % 2 === 0 ? "bg-white" : "bg-teal-50/30"
+                              }
+                            >
                               <td className="px-3 py-2 font-medium text-gray-800">
-                                <span className="font-bold text-teal-800 mr-1.5">{item.code}</span>
-                                <span className="text-gray-600 text-[11px]">{item.name}</span>
+                                <span className="font-bold text-teal-800 mr-1.5">
+                                  {item.code}
+                                </span>
+                                <span className="text-gray-600 text-[11px]">
+                                  {item.name}
+                                </span>
                               </td>
-                              <td className="px-3 py-2 text-center font-bold text-gray-700">{item.sum}</td>
+                              <td className="px-3 py-2 text-center font-bold text-gray-700">
+                                {item.sum}
+                              </td>
                               <td className="px-3 py-2 text-center font-black text-sm text-teal-950 bg-teal-100/50">
                                 {item.composite}
                               </td>
-                              <td className="px-3 py-2 text-center font-semibold text-gray-700">{item.percentile}</td>
-                              <td className="px-3 py-2 text-center font-semibold text-teal-800">{item.ci}</td>
+                              <td className="px-3 py-2 text-center font-semibold text-gray-700">
+                                {item.percentile}
+                              </td>
+                              <td className="px-3 py-2 text-center font-semibold text-teal-800">
+                                {item.ci}
+                              </td>
                               <td className="px-3 py-2 text-center font-bold text-teal-900 text-[11px]">
                                 {item.qualitative}
                               </td>
@@ -960,7 +1327,7 @@ export const EvaluationReportPage: React.FC = () => {
 
                 {/* Section 4: Primary Chart */}
                 {primaryChartData.categories.length > 0 && (
-                  <div className="pt-1">
+                  <div className="pt-1 break-inside-avoid avoid-page-break pdf-block bg-white">
                     <TealReportChart
                       categories={primaryChartData.categories}
                       values={primaryChartData.values}
@@ -974,36 +1341,61 @@ export const EvaluationReportPage: React.FC = () => {
 
                 {/* Section 5: Secondary Indexes Table & Chart (if applicable) */}
                 {secondaryList.length > 0 && (
-                  <div className="space-y-4 pt-2">
+                  <div className="space-y-4 pt-2 break-inside-avoid avoid-page-break pdf-block bg-white">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2 flex items-center">
                       <FileText className="w-3.5 h-3.5 mr-1.5 text-teal-700" />
                       Análisis Secundario: Índices Específicos
                     </h3>
-                    <div className="rounded-xl border border-teal-200 overflow-hidden">
+                    <div className="rounded-xl border border-teal-200 overflow-hidden break-inside-avoid avoid-page-break">
                       <table className="w-full text-left text-xs border-collapse">
                         <thead className="bg-teal-900 text-white font-bold uppercase text-[10px] tracking-wider">
                           <tr>
                             <th className="px-3 py-2">Índice Secundario</th>
-                            <th className="px-3 py-2 text-center w-20">Suma PE</th>
-                            <th className="px-3 py-2 text-center w-24">Punt. Compuesta</th>
-                            <th className="px-3 py-2 text-center w-20">Percentil</th>
-                            <th className="px-3 py-2 text-center w-24">IC ({confidenceInterval}%)</th>
-                            <th className="px-3 py-2 text-center">Clasificación Cualitativa</th>
+                            <th className="px-3 py-2 text-center w-20">
+                              Suma PE
+                            </th>
+                            <th className="px-3 py-2 text-center w-24">
+                              Punt. Compuesta
+                            </th>
+                            <th className="px-3 py-2 text-center w-20">
+                              Percentil
+                            </th>
+                            <th className="px-3 py-2 text-center w-24">
+                              IC ({confidenceInterval}%)
+                            </th>
+                            <th className="px-3 py-2 text-center">
+                              Clasificación Cualitativa
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-teal-100">
                           {secondaryList.map((item, idx) => (
-                            <tr key={item.code} className={idx % 2 === 0 ? 'bg-white' : 'bg-teal-50/30'}>
+                            <tr
+                              key={item.code}
+                              className={
+                                idx % 2 === 0 ? "bg-white" : "bg-teal-50/30"
+                              }
+                            >
                               <td className="px-3 py-2 font-medium text-gray-800">
-                                <span className="font-bold text-teal-900 mr-1.5">{item.code}</span>
-                                <span className="text-gray-600 text-[11px]">{item.name}</span>
+                                <span className="font-bold text-teal-900 mr-1.5">
+                                  {item.code}
+                                </span>
+                                <span className="text-gray-600 text-[11px]">
+                                  {item.name}
+                                </span>
                               </td>
-                              <td className="px-3 py-2 text-center font-bold text-gray-700">{item.sum}</td>
+                              <td className="px-3 py-2 text-center font-bold text-gray-700">
+                                {item.sum}
+                              </td>
                               <td className="px-3 py-2 text-center font-black text-sm text-teal-950 bg-teal-100/50">
                                 {item.composite}
                               </td>
-                              <td className="px-3 py-2 text-center font-semibold text-gray-700">{item.percentile}</td>
-                              <td className="px-3 py-2 text-center font-semibold text-teal-800">{item.ci}</td>
+                              <td className="px-3 py-2 text-center font-semibold text-gray-700">
+                                {item.percentile}
+                              </td>
+                              <td className="px-3 py-2 text-center font-semibold text-teal-800">
+                                {item.ci}
+                              </td>
                               <td className="px-3 py-2 text-center font-bold text-teal-900 text-[11px]">
                                 {item.qualitative}
                               </td>
@@ -1027,23 +1419,26 @@ export const EvaluationReportPage: React.FC = () => {
                 )}
 
                 {/* Section 6: Estructuración y Conclusiones */}
-                <div className="bg-white rounded-xl border-l-4 border-teal-700 p-4 bg-teal-50/30">
+                {/* <div className="bg-white rounded-xl border-l-4 border-teal-700 p-4 bg-teal-50/30">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2">
                     Estructuración del Perfil Cognitivo y Observaciones
                   </h4>
                   <p className="text-xs text-gray-800 whitespace-pre-wrap leading-relaxed">
                     {structuration || 'No se han registrado observaciones adicionales.'}
                   </p>
-                </div>
+                </div> */}
 
                 {/* Section 7: Official Public Verification Footer Card */}
-                <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px]">
+                <div className="bg-teal-50/70 border border-teal-200 rounded-xl p-3.5 flex flex-col sm:flex-row items-center justify-between gap-3 text-[10px] pdf-block bg-white">
                   <div className="flex items-center space-x-2.5">
                     <ShieldCheck className="w-5 h-5 text-teal-700 flex-shrink-0" />
                     <div>
-                      <span className="font-bold text-teal-950 block">Verificación Oficial de Autenticidad</span>
+                      <span className="font-bold text-teal-950 block">
+                        Verificación Oficial de Autenticidad
+                      </span>
                       <span className="text-gray-600 block">
-                        Valide la autenticidad e integridad de este documento en:{' '}
+                        Valide la autenticidad e integridad de este documento
+                        en:{" "}
                         <span className="text-teal-700 font-semibold underline">
                           {verificationUrl}
                         </span>
@@ -1052,7 +1447,9 @@ export const EvaluationReportPage: React.FC = () => {
                   </div>
 
                   <div className="text-center sm:text-right bg-white px-3.5 py-1.5 rounded-lg border border-teal-300 shadow-xs">
-                    <span className="text-[9px] font-bold uppercase text-teal-700 block">Código Público</span>
+                    <span className="text-[9px] font-bold uppercase text-teal-700 block">
+                      Código Público
+                    </span>
                     <span className="font-mono font-black text-xs text-teal-950 block tracking-wider">
                       {verificationCode}
                     </span>
@@ -1060,16 +1457,23 @@ export const EvaluationReportPage: React.FC = () => {
                 </div>
 
                 {/* Signature Block */}
-                <div className="pt-8 flex items-end justify-between border-t border-gray-200">
+                <div className="pt-8 flex items-end justify-between border-t border-gray-200 break-inside-avoid avoid-page-break pdf-block bg-white">
                   <div className="text-[10px] text-gray-400 space-y-0.5">
                     <p>Documento generado con validación criptográfica.</p>
-                    <p>Protección de datos médicos conforme a normativas de privacidad.</p>
+                    <p>
+                      Protección de datos médicos conforme a normativas de
+                      privacidad.
+                    </p>
                   </div>
 
                   <div className="text-center min-w-55">
                     <div className="border-t border-gray-900 pt-1.5 mt-10">
-                      <p className="text-xs font-bold text-gray-900">{evaluatorName || 'Firma del Profesional'}</p>
-                      <p className="text-[10px] text-teal-700 font-semibold">Especialista en Psicometría</p>
+                      <p className="text-xs font-bold text-gray-900">
+                        {evaluatorName || "Firma del Profesional"}
+                      </p>
+                      <p className="text-[10px] text-teal-700 font-semibold">
+                        {evaluatorTitle || "Especialista en Psicometría"}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1083,7 +1487,7 @@ export const EvaluationReportPage: React.FC = () => {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-xs p-4">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
               <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
-                <div className="flex items-center space-x-2 text-indigo-700 font-bold">
+                <div className="flex items-center space-x-2 text-teal-700 font-bold">
                   <Brain className="w-5 h-5" />
                   <span>Análisis Generado por IA</span>
                 </div>
@@ -1096,25 +1500,36 @@ export const EvaluationReportPage: React.FC = () => {
               </div>
               <div className="p-6 flex-1 overflow-y-auto">
                 <p className="text-xs text-gray-500 mb-3">
-                  Revisa y edita el texto generado antes de aplicarlo al informe final.
+                  Revisa y edita el texto generado antes de aplicarlo al informe
+                  final.
                 </p>
                 <textarea
                   value={aiGeneratedText}
                   onChange={(e) => setAiGeneratedText(e.target.value)}
-                  className="w-full h-64 p-4 border border-gray-200 rounded-xl font-medium text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition text-sm leading-relaxed"
-                  placeholder={isGeneratingAI ? "Generando análisis espere un momento..." : "El análisis aparecerá aquí..."}
+                  className="w-full h-64 p-4 border border-gray-200 rounded-xl font-medium text-gray-800 focus:ring-2 focus:ring-teal-500 focus:outline-none transition text-sm leading-relaxed"
+                  placeholder={
+                    isGeneratingAI
+                      ? "Generando análisis espere un momento..."
+                      : "El análisis aparecerá aquí..."
+                  }
                 />
               </div>
               <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
                 <button
                   onClick={() => {
-                    queryClient.invalidateQueries({ queryKey: ['aiAnalysis', evaluationId] });
+                    queryClient.invalidateQueries({
+                      queryKey: ["aiAnalysis", evaluationId],
+                    });
                     refetchAI();
                   }}
                   disabled={isGeneratingAI}
-                  className="px-4 py-2 rounded-xl text-indigo-700 bg-indigo-100 hover:bg-indigo-200 font-bold text-sm transition flex items-center cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl text-teal-700 bg-teal-100 hover:bg-teal-200 font-bold text-sm transition flex items-center cursor-pointer disabled:opacity-50"
                 >
-                  {isGeneratingAI ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Brain className="w-4 h-4 mr-1" />}
+                  {isGeneratingAI ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <Brain className="w-4 h-4 mr-1" />
+                  )}
                   Regenerar
                 </button>
                 <div className="flex space-x-3">
@@ -1126,11 +1541,11 @@ export const EvaluationReportPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => {
-                      setStructuration(aiGeneratedText);
+                      formik.setFieldValue("structuration", aiGeneratedText);
                       setIsAiModalOpen(false);
                     }}
                     disabled={!aiGeneratedText}
-                    className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold text-sm shadow-sm transition cursor-pointer"
+                    className="px-5 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl font-bold text-sm shadow-sm transition cursor-pointer"
                   >
                     Aplicar al Informe
                   </button>

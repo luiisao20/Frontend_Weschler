@@ -193,19 +193,19 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
 
   const renderSumTable = (title: string, defs: any[], sumMap: Record<string, any>) => {
     return (
-      <div className="bg-white rounded-2xl overflow-hidden shadow-xs border border-indigo-100 w-full">
-        <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-blue-600 px-5 py-3.5 text-center text-white">
-          <h4 className="font-extrabold text-xs uppercase tracking-wider text-indigo-100">{title}</h4>
-          <div className="flex justify-between text-[11px] font-bold text-indigo-200 uppercase mt-2 px-2">
+      <div className="bg-white rounded-2xl overflow-hidden shadow-xs border border-teal-100 w-full">
+        <div className="bg-gradient-to-r from-teal-700 via-teal-600 to-teal-600 px-5 py-3.5 text-center text-white">
+          <h4 className="font-extrabold text-xs uppercase tracking-wider text-teal-100">{title}</h4>
+          <div className="flex justify-between text-[11px] font-bold text-teal-200 uppercase mt-2 px-2">
             <span>ESCALA</span>
             <span>SUMA ESCALAR</span>
           </div>
         </div>
         <div className="divide-y divide-gray-100 text-xs">
           {defs.map(idx => (
-            <div key={idx.code} className="flex justify-between items-center px-5 py-3.5 hover:bg-indigo-50/40 transition">
+            <div key={idx.code} className="flex justify-between items-center px-5 py-3.5 hover:bg-teal-50/40 transition">
               <span className="font-medium text-gray-800">{idx.name}</span>
-              <span className="font-extrabold text-indigo-600 text-base">{getSumValue(sumMap, idx.code)}</span>
+              <span className="font-extrabold text-teal-600 text-base">{getSumValue(sumMap, idx.code)}</span>
             </div>
           ))}
         </div>
@@ -221,22 +221,22 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
     onCiChange: (ci: '90' | '95') => void
   ) => {
     return (
-      <div className="bg-white rounded-2xl overflow-hidden shadow-xs border border-indigo-100 w-full">
-        <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-blue-600 px-5 py-3.5 flex items-center justify-between text-white">
-          <h4 className="font-extrabold text-xs uppercase tracking-wider text-indigo-100">{title}</h4>
+      <div className="bg-white rounded-2xl overflow-hidden shadow-xs border border-teal-100 w-full">
+        <div className="bg-gradient-to-r from-teal-700 via-teal-600 to-teal-600 px-5 py-3.5 flex items-center justify-between text-white">
+          <h4 className="font-extrabold text-xs uppercase tracking-wider text-teal-100">{title}</h4>
           <div className="flex items-center space-x-2 text-[11px]">
-            <span className="text-indigo-200 font-semibold">INTERVALO DE CONFIANZA:</span>
+            <span className="text-teal-200 font-semibold">INTERVALO DE CONFIANZA:</span>
             <button
               type="button"
               onClick={() => onCiChange('90')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentCi === '90' ? 'bg-white text-indigo-700 shadow-xs' : 'bg-indigo-800/60 text-indigo-100 hover:bg-indigo-800'}`}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentCi === '90' ? 'bg-white text-teal-700 shadow-xs' : 'bg-teal-800/60 text-teal-100 hover:bg-teal-800'}`}
             >
               90%
             </button>
             <button
               type="button"
               onClick={() => onCiChange('95')}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentCi === '95' ? 'bg-white text-indigo-700 shadow-xs' : 'bg-indigo-800/60 text-indigo-100 hover:bg-indigo-800'}`}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition ${currentCi === '95' ? 'bg-white text-teal-700 shadow-xs' : 'bg-teal-800/60 text-teal-100 hover:bg-teal-800'}`}
             >
               95%
             </button>
@@ -245,7 +245,7 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-indigo-50/80 text-[10px] font-bold text-indigo-900 uppercase tracking-wider border-b border-indigo-100">
+            <thead className="bg-teal-50/80 text-[10px] font-bold text-teal-900 uppercase tracking-wider border-b border-teal-100">
               <tr>
                 <th className="px-5 py-3">ESCALA</th>
                 <th className="px-5 py-3 text-center">PUNTUACIÓN COMPUESTA</th>
@@ -261,9 +261,9 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
                 const rangeStr = getConfidenceInterval(item, currentCi);
 
                 return (
-                  <tr key={idx.code} className="hover:bg-indigo-50/40 transition">
+                  <tr key={idx.code} className="hover:bg-teal-50/40 transition">
                     <td className="px-5 py-3.5 font-medium text-gray-800">{idx.name}</td>
-                    <td className="px-5 py-3.5 text-center font-extrabold text-indigo-600 text-base">
+                    <td className="px-5 py-3.5 text-center font-extrabold text-teal-600 text-base">
                       {composite !== undefined && composite !== null ? String(composite) : '-'}
                     </td>
                     <td className="px-5 py-3.5 text-center font-bold text-gray-700">
@@ -271,7 +271,7 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
                     </td>
                     <td className="px-5 py-3.5 text-center">
                       {rangeStr !== '-' ? (
-                        <span className="bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-1 rounded-md text-xs border border-indigo-100">
+                        <span className="bg-teal-50 text-teal-700 font-semibold px-2.5 py-1 rounded-md text-xs border border-teal-100">
                           {rangeStr}
                         </span>
                       ) : (
@@ -298,12 +298,12 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
           <div className="flex flex-wrap items-center gap-4">
             <span className="font-extrabold text-sm uppercase text-gray-900 tracking-wide">{evalTitle}</span>
-            <span className="bg-indigo-600 text-white font-bold text-xs px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-xs">
+            <span className="bg-teal-600 text-white font-bold text-xs px-2.5 py-1 rounded-lg uppercase tracking-wider shadow-xs">
               {displayScaleName}
             </span>
             {(years > 0 || months > 0) && (
               <span className="flex items-center space-x-1 text-xs font-semibold text-gray-600 bg-white px-3 py-1 rounded-lg border border-gray-200">
-                <Brain className="w-3.5 h-3.5 text-indigo-600" />
+                <Brain className="w-3.5 h-3.5 text-teal-600" />
                 <span>{years} años, {months} meses</span>
               </span>
             )}
@@ -367,10 +367,10 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
             <div className="w-full">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2 text-xs font-bold text-gray-700 uppercase">
-                  <BarChart2 className="w-4 h-4 text-indigo-600" />
+                  <BarChart2 className="w-4 h-4 text-teal-600" />
                   <span>{scaleType === 'wnv' ? 'Puntuación Escala Total' : 'Análisis Primario - Puntuaciones compuestas'}</span>
                 </div>
-                <span className="text-[11px] font-semibold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">
+                <span className="text-[11px] font-semibold bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md border border-teal-100">
                   IC {primaryCi}%
                 </span>
               </div>
@@ -385,10 +385,10 @@ export const ModalEvaluationDetail: React.FC<ModalEvaluationDetailProps> = ({
               <div className="w-full">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2 text-xs font-bold text-gray-700 uppercase">
-                    <BarChart2 className="w-4 h-4 text-indigo-600" />
+                    <BarChart2 className="w-4 h-4 text-teal-600" />
                     <span>Análisis Secundario - Puntuaciones compuestas</span>
                   </div>
-                  <span className="text-[11px] font-semibold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-100">
+                  <span className="text-[11px] font-semibold bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md border border-teal-100">
                     IC {secondaryCi}%
                   </span>
                 </div>

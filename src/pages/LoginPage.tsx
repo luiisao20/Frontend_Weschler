@@ -32,17 +32,17 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-violet-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-teal-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex p-3 rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200 mb-4">
+          <div className="inline-flex p-3 rounded-2xl bg-teal-600 text-white shadow-lg shadow-teal-200 mb-4">
             <Brain className="w-10 h-10" />
           </div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Intelligence Scales</h1>
           <p className="text-sm text-gray-500 mt-2">Plataforma de evaluación psicométrica de inteligencia</p>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-xl shadow-indigo-100/50 border border-gray-100 p-8">
+        <div className="bg-white rounded-3xl shadow-xl shadow-teal-100/50 border border-gray-100 p-8">
           <h2 className="text-xl font-bold text-gray-800 mb-6">Iniciar Sesión</h2>
 
           {error && (
@@ -66,7 +66,7 @@ export const LoginPage: React.FC = () => {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   required
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50 focus:bg-white transition"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50/50 focus:bg-white transition"
                   placeholder="usuario@ejemplo.com"
                 />
               </div>
@@ -85,7 +85,7 @@ export const LoginPage: React.FC = () => {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm bg-gray-50/50 focus:bg-white transition"
+                  className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-hidden focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm bg-gray-50/50 focus:bg-white transition"
                   placeholder="••••••••"
                 />
               </div>
@@ -94,7 +94,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-semibold rounded-xl transition shadow-lg shadow-indigo-200 flex items-center justify-center space-x-2 disabled:opacity-50 mt-2"
+              className="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 active:bg-teal-800 text-white font-semibold rounded-xl transition shadow-lg shadow-teal-200 flex items-center justify-center space-x-2 disabled:opacity-50 mt-2"
             >
               <span>{loading ? 'Ingresando...' : 'Iniciar Sesión'}</span>
               <ArrowRight className="w-5 h-5" />
