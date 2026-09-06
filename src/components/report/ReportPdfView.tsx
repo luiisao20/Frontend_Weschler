@@ -44,6 +44,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
       evaluatorName,
       evaluatorTitle,
       evaluationPlace,
+      unicodigoAcess,
       evaluationCity,
       evaluationCountry,
       confidenceInterval,
@@ -96,7 +97,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
             <div className="bg-teal-50/50 rounded-xl border border-teal-200 p-4 break-inside-avoid avoid-page-break pdf-block bg-white">
               <h3 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-3 border-b border-teal-200/80 pb-1.5 flex items-center">
                 <User className="w-3.5 h-3.5 mr-1.5 text-teal-700" />
-                Datos del Paciente e Información Clínica
+                Datos de identificación y del contexto de la evaluación
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-xs">
                 <div>
@@ -139,7 +140,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
                     {diagnosis || "No especificado"}
                   </span>
                 </div>
-                <div className="sm:col-span-3">
+                <div>
                   <span className="text-[10px] font-bold uppercase text-teal-700 block">
                     Evaluador / Profesional
                   </span>
@@ -147,7 +148,15 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
                     {evaluatorName || "-"}
                   </span>
                 </div>
-                <div className="sm:col-span-3">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-teal-700 block">
+                    Unicódigo ACESS
+                  </span>
+                  <span className="font-semibold font-mono text-gray-900">
+                    {unicodigoAcess || "-"}
+                  </span>
+                </div>
+                <div className="sm:col-span-2">
                   <span className="text-[10px] font-bold uppercase text-teal-700 block">
                     Lugar de Evaluación
                   </span>
@@ -356,7 +365,7 @@ export const ReportPdfView = forwardRef<HTMLDivElement, ReportPdfViewProps>(
             )}
 
             {/* Section 6: Estructuración y Conclusiones */}
-            <div className="bg-white rounded-xl border-l-4 border-teal-700 p-4 bg-teal-50/30">
+            <div className="rounded-xl border-l-4 border-teal-700 p-4 bg-teal-50/40 pdf-block break-inside-avoid avoid-page-break">
               <h4 className="text-xs font-bold uppercase tracking-wider text-teal-900 mb-2">
                 Estructuración del Perfil Cognitivo y Observaciones
               </h4>

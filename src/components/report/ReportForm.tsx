@@ -23,6 +23,7 @@ export interface ReportFormValues {
   evaluatorName: string;
   evaluatorTitle: string;
   evaluationPlace: string;
+  unicodigoAcess: string;
   evaluationCity: string;
   evaluationCountry: string;
   confidenceInterval: "90" | "95";
@@ -282,6 +283,20 @@ export const ReportForm: React.FC<ReportFormProps> = ({
             onBlur={handleBlur}
             placeholder="Ej. Clínica ABC"
             className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-gray-600 mb-1.5">
+            UNICÓDIGO ACESS
+          </label>
+          <input
+            type="text"
+            name="unicodigoAcess"
+            value={values.unicodigoAcess}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            placeholder="Ej. 12345678"
+            className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl font-medium text-gray-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition font-mono"
           />
         </div>
         <div>
