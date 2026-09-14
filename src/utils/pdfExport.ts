@@ -4,6 +4,7 @@ import { toPng } from 'html-to-image';
 /**
  * Exports an HTML container intelligently by breaking it down into blocks.
  * Uses html-to-image (which supports modern CSS like oklch) and jsPDF.
+ * Supports blocks taller than one page by slicing them across pages.
  */
 export async function exportHtmlToPdf(
   element: HTMLElement,
@@ -33,6 +34,31 @@ export async function exportHtmlToPdf(
     return;
   }
 
+  // Helper: load an image data URL into an HTMLImageElement
+  function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
+
+  // Helper: slice a portion of an image and return a data URL
+  function sliceImage(
+    img: HTMLImageElement,
+    srcY: number,
+    srcHeight: number,
+    fullWidth: number
+  ): string {
+    const canvas = document.createElement('canvas');
+    canvas.width = fullWidth;
+    canvas.height = srcHeight;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, srcY, fullWidth, srcHeight, 0, 0, fullWidth, srcHeight);
+    return canvas.toDataURL('image/png');
+  }
+
   // Iterate over each block and render it as an image
   for (let i = 0; i < blocks.length; i++) {
     const block = blocks[i];
@@ -41,37 +67,77 @@ export async function exportHtmlToPdf(
     await new Promise(r => setTimeout(r, 50));
 
     try {
+      const pixelRatio = 2;
       const dataUrl = await toPng(block, {
         quality: 0.98,
-        pixelRatio: 2,
+        pixelRatio,
         backgroundColor: '#ffffff',
         cacheBust: true,
       });
 
-      // Calculate heights
-      const imgProps = pdf.getImageProperties(dataUrl);
+      // Calculate dimensions
       const blockPixelWidth = block.offsetWidth;
       const blockPixelHeight = block.offsetHeight;
       
-      // Since we are capturing individual blocks inside a padded container,
-      // the blocks themselves don't include the parent's padding in the image.
-      // We want to stretch them to fill the PDF usable width entirely.
       const widthInMm = usableWidth;
       const heightInMm = (blockPixelHeight / blockPixelWidth) * widthInMm;
 
-      // If the block is taller than a single page, we can't avoid cutting it, 
-      // but if it fits and just exceeds current Y, add a page.
-      if (currentY + heightInMm > usableHeight + margin) {
-        // Only add page if we are not already at the top
-        if (currentY > margin) {
+      // Case 1: the block fits within remaining space on current page
+      if (currentY + heightInMm <= usableHeight + margin) {
+        pdf.addImage(dataUrl, 'PNG', margin, currentY, widthInMm, heightInMm, undefined, 'FAST');
+        currentY += heightInMm + 4;
+      }
+      // Case 2: the block fits within a single page, but not the current remaining space
+      else if (heightInMm <= usableHeight) {
+        pdf.addPage('a4', 'portrait');
+        pageCount++;
+        currentY = margin;
+        pdf.addImage(dataUrl, 'PNG', margin, currentY, widthInMm, heightInMm, undefined, 'FAST');
+        currentY += heightInMm + 4;
+      }
+      // Case 3: the block is TALLER than one full page — slice it across pages
+      else {
+        const img = await loadImage(dataUrl);
+        const imgFullWidth = blockPixelWidth * pixelRatio;
+        const imgFullHeight = blockPixelHeight * pixelRatio;
+        // mm per pixel (in image pixel space)
+        const mmPerPixel = widthInMm / imgFullWidth;
+
+        let remainingImgY = 0; // current Y position in image pixels
+
+        while (remainingImgY < imgFullHeight) {
+          // How much vertical space is available on the current page (in mm)?
+          const availableMm = usableHeight + margin - currentY;
+          // Convert available mm to image pixels
+          const availablePixels = Math.floor(availableMm / mmPerPixel);
+          // How many pixels to render in this slice
+          const slicePixels = Math.min(availablePixels, imgFullHeight - remainingImgY);
+          const sliceHeightMm = slicePixels * mmPerPixel;
+
+          if (slicePixels <= 0) {
+            // No space left on this page, move to next
             pdf.addPage('a4', 'portrait');
             pageCount++;
             currentY = margin;
+            continue;
+          }
+
+          const sliceDataUrl = sliceImage(img, remainingImgY, slicePixels, imgFullWidth);
+          pdf.addImage(sliceDataUrl, 'PNG', margin, currentY, widthInMm, sliceHeightMm, undefined, 'FAST');
+
+          remainingImgY += slicePixels;
+          currentY += sliceHeightMm;
+
+          // If there's more content, go to next page
+          if (remainingImgY < imgFullHeight) {
+            pdf.addPage('a4', 'portrait');
+            pageCount++;
+            currentY = margin;
+          } else {
+            currentY += 4; // spacing after block
+          }
         }
       }
-
-      pdf.addImage(dataUrl, 'PNG', margin, currentY, widthInMm, heightInMm, undefined, 'FAST');
-      currentY += heightInMm + 4; // Add 4mm spacing between blocks
       
     } catch (e) {
       console.warn("Could not render block to image", e);
